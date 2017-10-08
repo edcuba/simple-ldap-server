@@ -1,12 +1,41 @@
 #include "server.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
 
 using namespace std;
+
+class ldapMsg
+{
+  public:
+    ldapMsg (size_t size) { msg = new char[size]; }
+    int len = 0;
+    char *msg = NULL;
+};
+
+/**
+ * Read message from TCP socket
+ * @param client socket descriptor
+ **/
+static ldapMsg *
+readMessage (int client)
+{
+    // get length of the message
+    int len = 0;
+    ioctl (client, FIONREAD, &len);
+
+    if (len > 0) {
+        ldapMsg *data = new ldapMsg(len);
+        data->len = read (client, data->msg, len);
+        return data;
+    }
+
+    return NULL;
+}
 
 /**
  * Handle client and exit
@@ -15,6 +44,14 @@ using namespace std;
 static void
 handleClient (int client)
 {
+    ldapMsg *data = readMessage (client);
+    cout << "Data length: " << data->len << endl;
+    for (size_t i = 0; i < data->len; ++i) {
+        cout << "0x";
+        cout << hex << (int)data->msg[i];
+        cout << " ";
+    }
+    cout << endl;
     close (client);
 }
 
@@ -29,7 +66,7 @@ createSocket (int port)
     int sd = -1;
     if ((sd = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
         pError ("socket()");
-        return sd;
+        return -1;
     }
 
     sockaddr_in socketInfo;
@@ -37,15 +74,16 @@ createSocket (int port)
     socketInfo.sin_port = htons (port);
     socketInfo.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind (sd, (sockaddr*) &socketInfo, sizeof (socketInfo)) == -1) {
+    if (bind (sd, (sockaddr *) &socketInfo, sizeof (socketInfo)) == -1) {
         pError ("bind()");
         close (sd);
-        return sd;
+        return -1;
     }
 
     if (listen (sd, 64) == -1) {
         pError ("listen()");
         close (sd);
+        return -1;
     }
     return sd;
 }
@@ -59,7 +97,7 @@ createSocket (int port)
  * @return 0 if successfull
  **/
 int
-runServer (config& c)
+runServer (config &c)
 {
     // set up socket
     int sd = createSocket (c.port);
@@ -79,7 +117,7 @@ runServer (config& c)
 
         printD ("Waiting for connection");
 
-        client = accept (sd, (sockaddr*) &cInfo, &addrlen);
+        client = accept (sd, (sockaddr *) &cInfo, &addrlen);
         if (client == -1) {
             pError ("accept()");
             close (sd);
