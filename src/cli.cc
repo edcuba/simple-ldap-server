@@ -1,0 +1,50 @@
+#include "cli.h"
+#include <cstring>
+
+using namespace std;
+
+bool
+parseCli (int argc, char const* argv[], config& c)
+{
+    // get port
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp ("-p", argv[i]) == 0) {
+            if (i >= argc - 1) {
+                printE ("Error: invalid port specification");
+                return false;
+            }
+            c.port = strtol (argv[i + 1], NULL, 0);
+            break;
+        }
+    }
+
+    // get file
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp ("-f", argv[i]) == 0) {
+            if (i >= argc - 1) {
+                printE ("Error: invalid file specification");
+                return false;
+            }
+            c.file = argv[i + 1];
+            break;
+        }
+    }
+
+    if (c.file.empty ()) {
+        printE ("Error: no input file specified");
+        return false;
+    }
+    return true;
+}
+
+bool
+isHelp (int argc, char const* argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp ("-h", argv[i]) == 0) {
+            printE ("Usage: \n\n\tmyldap [-p port] -f file\n");
+            return true;
+        }
+    }
+    return false;
+}

@@ -1,6 +1,12 @@
 CC = g++
 CFLAGS=-std=c++14
-SRCS = myldap.cc
+SRCS = src/*.cc
+HDRS = src/*.h
+TARGET = myldap
+LIBS=-lpthread
 
-myldap: $(SRCS)
-	$(CC) $(CFLAGS) $^ -o $@
+$(TARGET): $(SRCS) $(HDRS)
+	$(CC) $(CFLAGS) $(LIBS) $^ -o $@
+
+clean:
+	rm $(TARGET)
