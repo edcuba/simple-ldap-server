@@ -1,4 +1,5 @@
 #include "server.h"
+#include "ldap.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
@@ -18,23 +19,56 @@ class ldapMsg
 };
 
 /**
+ * Receive byte from client
+ * @param client socket descriptor
+ * @return single byte from socket
+ **/
+static inline int
+receiveByte (int client)
+{
+    int data = 0;
+    read (client, &data, 1);
+    printD ("[" << client << "] Received: 0x" << hex << data);
+    return data;
+}
+
+/**
  * Read message from TCP socket
  * @param client socket descriptor
  **/
 static ldapMsg *
 readMessage (int client)
 {
-    // get length of the message
-    int len = 0;
-    ioctl (client, FIONREAD, &len);
+    // read first two bytes expect LdapMessage - 0x30 and length of L1 message
+    int type = receiveByte (client);
 
-    if (len > 0) {
-        ldapMsg *data = new ldapMsg(len);
-        data->len = read (client, data->msg, len);
-        return data;
+    if (type != MSG_LDAP) {
+        printE ("Invalid message header: 0x" << hex << type);
+        return NULL;
     }
 
-    return NULL;
+    // get length of the message
+    int len = receiveByte (client);
+
+    if (len == 0) {
+        printE("Invalid message length: " << len);
+        return NULL;
+    }
+
+    ldapMsg *data = new ldapMsg (len);
+    data->len = read (client, data->msg, len);
+    return data;
+}
+
+/**
+ * Close socket and print debug line if applicable
+ * @param client socket descriptor
+ **/
+static inline void
+sclose (int client)
+{
+    close (client);
+    printD ("Client " << client << " closed");
 }
 
 /**
@@ -44,15 +78,28 @@ readMessage (int client)
 static void
 handleClient (int client)
 {
+    printD ("Thread handling client " << client);
+
     ldapMsg *data = readMessage (client);
-    cout << "Data length: " << data->len << endl;
-    for (size_t i = 0; i < data->len; ++i) {
-        cout << "0x";
-        cout << hex << (int)data->msg[i];
-        cout << " ";
+
+    if (data == NULL) {
+        printD ("Warning: no data from client " << client);
+        sclose (client);
+        return;
     }
-    cout << endl;
-    close (client);
+
+    printD ("Data length: " << data->len);
+
+    if (DEBUG) {
+        for (size_t i = 0; i < data->len; ++i) {
+            cerr << "0x";
+            cerr << hex << (int) data->msg[i];
+            cerr << " ";
+        }
+        cerr << endl;
+    }
+
+    sclose (client);
 }
 
 /**
@@ -111,11 +158,11 @@ runServer (config &c)
     socklen_t addrlen;
     sockaddr_in cInfo;
 
+    printD ("Waiting for connection");
+
     // accept connections
     while (true) {
         addrlen = sizeof (cInfo);
-
-        printD ("Waiting for connection");
 
         client = accept (sd, (sockaddr *) &cInfo, &addrlen);
         if (client == -1) {
