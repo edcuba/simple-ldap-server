@@ -13,9 +13,9 @@ using namespace std;
 class ldapMsg
 {
   public:
-    ldapMsg (size_t size) { msg = new char[size]; }
+    ldapMsg (size_t size) { msg = new unsigned char[size]; }
     int len = 0;
-    char *msg = NULL;
+    unsigned char *msg = NULL;
 };
 
 /**
@@ -51,7 +51,7 @@ readMessage (int client)
     int len = receiveByte (client);
 
     if (len == 0) {
-        printE("Invalid message length: " << len);
+        printE ("Invalid message length: " << len);
         return NULL;
     }
 
@@ -88,13 +88,11 @@ handleClient (int client)
         return;
     }
 
-    printD ("Data length: " << data->len);
+    printD ("Data length: " << dec << data->len);
 
     if (DEBUG) {
         for (size_t i = 0; i < data->len; ++i) {
-            cerr << "0x";
-            cerr << hex << (int) data->msg[i];
-            cerr << " ";
+            fprintf(stderr, "0x%x ", data->msg[i]);
         }
         cerr << endl;
     }
