@@ -6,4 +6,7 @@
 int
 runServer (config& c);
 
+unsigned char
+receiveByte (int client);
+
 #endif

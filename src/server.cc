@@ -10,53 +10,17 @@
 
 using namespace std;
 
-class ldapMsg
-{
-  public:
-    ldapMsg (size_t size) { msg = new unsigned char[size]; }
-    int len = 0;
-    unsigned char *msg = NULL;
-};
-
 /**
  * Receive byte from client
  * @param client socket descriptor
  * @return single byte from socket
  **/
-static inline int
+unsigned char
 receiveByte (int client)
 {
-    int data = 0;
+    unsigned char data = 0;
     read (client, &data, 1);
-    printD ("[" << client << "] Received: 0x" << hex << data);
-    return data;
-}
-
-/**
- * Read message from TCP socket
- * @param client socket descriptor
- **/
-static ldapMsg *
-readMessage (int client)
-{
-    // read first two bytes expect LdapMessage - 0x30 and length of L1 message
-    int type = receiveByte (client);
-
-    if (type != MSG_LDAP) {
-        printE ("Invalid message header: 0x" << hex << type);
-        return NULL;
-    }
-
-    // get length of the message
-    int len = receiveByte (client);
-
-    if (len == 0) {
-        printE ("Invalid message length: " << len);
-        return NULL;
-    }
-
-    ldapMsg *data = new ldapMsg (len);
-    data->len = read (client, data->msg, len);
+    printD ("[" << client << "] Received: 0x" << hex << (int) data);
     return data;
 }
 
@@ -79,23 +43,8 @@ static void
 handleClient (int client)
 {
     printD ("Thread handling client " << client);
-
-    ldapMsg *data = readMessage (client);
-
-    if (data == NULL) {
-        printD ("Warning: no data from client " << client);
-        sclose (client);
-        return;
-    }
-
-    printD ("Data length: " << dec << data->len);
-
-    if (DEBUG) {
-        for (size_t i = 0; i < data->len; ++i) {
-            fprintf(stderr, "0x%x ", data->msg[i]);
-        }
-        cerr << endl;
-    }
+    unsigned char *response = processMessage (client);
+    // TODO send response
 
     sclose (client);
 }
