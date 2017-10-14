@@ -43,8 +43,9 @@ static void
 handleClient (int client)
 {
     printD ("Thread handling client " << client);
-    unsigned char *response = processMessage (client);
-    // TODO send response
+    ldapResponse *response = processMessage (client);
+    write(client, response->msg, response->length);
+    response = processMessage(client);
 
     sclose (client);
 }

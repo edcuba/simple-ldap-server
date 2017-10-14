@@ -4,6 +4,10 @@
 
 using namespace std;
 
+/**
+ * LDAP context structure
+ * represents LDAP request
+ **/
 class ldapContext
 {
   public:
@@ -16,11 +20,18 @@ class ldapContext
     int received2 = 0;
     int msgId = 0;
     int protocol = 0;
+    unsigned char *result = NULL;
+    int resultlen = 0;
+    int responseProtocol = 0;
 };
 
-unsigned char *
+ldapResponse *
 processLength (ldapContext *context);
 
+/**
+ * Read single byte from socket descriptor and count in to actual level
+ * @param context ldap message context
+ **/
 static unsigned char
 getByte (ldapContext *context)
 {
@@ -36,13 +47,23 @@ getByte (ldapContext *context)
     return receiveByte (context->client);
 }
 
+/**
+ * Print an error with hexadecimal value
+ * @param msg error message string
+ * @param val numerical value to be represented as hexadecimal number
+ **/
 static void
 pErrHex (const char *msg, unsigned char val)
 {
     printE (msg << ": 0x" << hex << val);
 }
 
-static unsigned char *
+/**
+ * Generate response with error code
+ * @param context ldap message context
+ * @param type error type code
+ **/
+static ldapResponse *
 ldapError (ldapContext *context, int type)
 {
     free (context);
@@ -56,13 +77,75 @@ ldapError (ldapContext *context, int type)
     return NULL;
 }
 
-static unsigned char *
-generateResponse (ldapContext *context)
+/**
+ * Wrap the ldapResult into ldapMessage
+ * @param context ldap message context
+ **/
+static ldapResponse *
+generateLdapMessage (ldapContext *context)
 {
-    return NULL; // TODO
+    size_t length = RESPONSE_LEN + context->resultlen;
+
+    // initialize message header
+    unsigned char *protocolOp = new unsigned char[length];
+    protocolOp[0] = MSG_LDAP;
+    protocolOp[1] = length;
+    protocolOp[2] = MSG_ID;
+    protocolOp[3] = 0x01;
+    protocolOp[4] = context->msgId + 1;
+    protocolOp[5] = context->responseProtocol;
+    protocolOp[6] = context->resultlen;
+
+    // add rest of the message
+    memcpy (protocolOp + RESPONSE_LEN, context->result, context->resultlen);
+
+    // free the context
+    free (context);
+
+    if (DEBUG) {
+        printD ("Response message");
+        for (int i = 0; i < length; ++i) {
+            cerr << " 0x" << hex << (int) protocolOp[i];
+        }
+        cerr << endl;
+    }
+
+    return new ldapResponse(protocolOp, length);
 }
 
-static unsigned char *
+/**
+ * Generate ldapResult of type success (0)
+ * @param context ldap message context
+ **/
+static ldapResponse *
+generateResultSuccess (ldapContext *context)
+{
+    context->result = new unsigned char[RESPONSE_SUCC_LEN];
+    memcpy (context->result, RESPONSE_SUCC, RESPONSE_LEN);
+    context->resultlen = RESPONSE_SUCC_LEN;
+    return generateLdapMessage (context);
+}
+
+/**
+ * Generate response to particular request
+ * Select propriate ldapResult
+ * @param context ldap message context
+ **/
+static ldapResponse *
+generateResponse (ldapContext *context)
+{
+    switch (context->protocol) {
+        case MSG_BIND_REQUEST:
+            context->responseProtocol = MSG_BIND_RESPONSE;
+            generateResultSuccess (context);
+    }
+}
+
+/**
+ * Process end of the message
+ * @param context ldap message context
+ **/
+static ldapResponse *
 processMessageEnd (ldapContext *context)
 {
     unsigned char data = 0; // FIXME support 0xA0
@@ -75,7 +158,11 @@ processMessageEnd (ldapContext *context)
     return ldapError (context, ERR_MSG);
 }
 
-static unsigned char *
+/**
+ * Process bindRequest authentification
+ * @param context ldap message context
+ **/
+static ldapResponse *
 processBindRequestAuth (ldapContext *context)
 {
     unsigned char data = getByte (context);
@@ -97,7 +184,11 @@ processBindRequestAuth (ldapContext *context)
     return processMessageEnd (context);
 }
 
-static unsigned char *
+/**
+ * Process bindRequest name
+ * @param context ldap message context
+ **/
+static ldapResponse *
 processBindRequestName (ldapContext *context)
 {
     unsigned char data = getByte (context);
@@ -117,7 +208,11 @@ processBindRequestName (ldapContext *context)
     return processBindRequestAuth (context);
 }
 
-static unsigned char *
+/**
+ * Process bindRequest header
+ * @param context ldap message context
+ **/
+static ldapResponse *
 processBindRequest (ldapContext *context)
 {
     printD ("Protocol: bindRequest");
@@ -146,7 +241,11 @@ processBindRequest (ldapContext *context)
     return processBindRequestName (context);
 }
 
-static unsigned char *
+/**
+ * Parse protocol type
+ * @param context ldap message context
+ **/
+static ldapResponse *
 processProtocolOp (ldapContext *context)
 {
     unsigned char protocolOp = getByte (context);
@@ -162,7 +261,11 @@ processProtocolOp (ldapContext *context)
     return ldapError (context, ERR_UNKNOWN_PROTOCOL);
 }
 
-static unsigned char *
+/**
+ * Process ldapMessage header
+ * @param context ldap message context
+ **/
+static ldapResponse *
 processLdapMessage (ldapContext *context)
 {
     // 0x02
@@ -188,7 +291,11 @@ processLdapMessage (ldapContext *context)
     return processProtocolOp (context);
 }
 
-unsigned char *
+/**
+ * Parse and process length of the next section in the message
+ * @param context ldap message context
+ **/
+ldapResponse *
 processLength (ldapContext *context)
 {
     context->level += 1;
@@ -221,7 +328,7 @@ processLength (ldapContext *context)
  * @param client socket descriptor
  * @return byte response
  **/
-unsigned char *
+ldapResponse *
 processMessage (int client)
 {
     // initialize context for communication

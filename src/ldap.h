@@ -1,6 +1,8 @@
 #ifndef LDAP_H
 #define LDAP_H
 
+#include <cstring>
+
 // error types
 #define ERR_HEAD 0
 #define ERR_LENGTH 1
@@ -10,7 +12,6 @@
 
 #define ERR_NOT_IMPLEMENTED -1
 
-
 #define MSG_LDAP 0x30
 #define MSG_ID 0x02
 #define MSG_END 0xA0
@@ -18,12 +19,28 @@
 #define MSG_BIND_REQUEST 0x60
 #define MSG_BIND_REQUEST_NAME 0x04
 #define MSG_BIND_REQUEST_AUTH 0x80
+#define MSG_BIND_RESPONSE 0x61
 
+#define RESPONSE_LEN 7
 
+const unsigned char RESPONSE_SUCC[] = { 0x0A, 0x01, 0x0 };
+#define RESPONSE_SUCC_LEN 3
 
 #define MSG_SEARCH_REQUEST 0x63
 
-unsigned char *
+class ldapResponse
+{
+  public:
+    ldapResponse (unsigned char *data, size_t len)
+    {
+        msg = data;
+        length = len;
+    }
+    unsigned char *msg = NULL;
+    size_t length = 0;
+};
+
+ldapResponse *
 processMessage (int client);
 
 #endif
