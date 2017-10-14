@@ -23,8 +23,8 @@
 
 #define RESPONSE_LEN 7
 
-const unsigned char RESPONSE_SUCC[] = { 0x0A, 0x01, 0x0 };
-#define RESPONSE_SUCC_LEN 3
+const unsigned char RESPONSE_SUCC[] = { 0xA, 0x1, 0x0, 0x4, 0x0, 0x4, 0x0 };
+#define RESPONSE_SUCC_LEN 7
 
 #define MSG_SEARCH_REQUEST 0x63
 

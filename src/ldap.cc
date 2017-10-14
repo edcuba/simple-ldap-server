@@ -55,7 +55,7 @@ getByte (ldapContext *context)
 static void
 pErrHex (const char *msg, unsigned char val)
 {
-    printE (msg << ": 0x" << hex << val);
+    printE (msg << ": 0x" << hex << (int) val);
 }
 
 /**
@@ -89,10 +89,10 @@ generateLdapMessage (ldapContext *context)
     // initialize message header
     unsigned char *protocolOp = new unsigned char[length];
     protocolOp[0] = MSG_LDAP;
-    protocolOp[1] = length;
+    protocolOp[1] = length - 2; // except Ox3O LL
     protocolOp[2] = MSG_ID;
     protocolOp[3] = 0x01;
-    protocolOp[4] = context->msgId + 1;
+    protocolOp[4] = context->msgId;
     protocolOp[5] = context->responseProtocol;
     protocolOp[6] = context->resultlen;
 
