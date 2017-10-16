@@ -29,6 +29,29 @@ ldapResponse *
 processLength (ldapContext *context);
 
 /**
+ * Print an error with hexadecimal value
+ * @param msg error message string
+ * @param val numerical value to be represented as hexadecimal number
+ **/
+static void
+pErrHex (const char *msg, unsigned char val)
+{
+    printE (msg << " : 0x" << hex << (int) val);
+}
+
+#define EXPECT(data, val)                                                         \
+    if (data != val) {                                                            \
+        printE ("expected: 0x" << hex << val << ", got: 0x" << hex << (int) data); \
+        return ldapError (context, val);                                          \
+    }
+
+#define EXPECT_RANGE(data, from, to, err)                                                \
+    if (data < from || data > to) {                                                      \
+        printE ("expected <" << from << ", " << to << ">, got: 0x" << hex << (int) data); \
+        return ldapError (context, err);                                                 \
+    }
+
+/**
  * Read single byte from socket descriptor and count in to actual level
  * @param context ldap message context
  **/
@@ -45,17 +68,6 @@ getByte (ldapContext *context)
     }
 
     return receiveByte (context->client);
-}
-
-/**
- * Print an error with hexadecimal value
- * @param msg error message string
- * @param val numerical value to be represented as hexadecimal number
- **/
-static void
-pErrHex (const char *msg, unsigned char val)
-{
-    printE (msg << ": 0x" << hex << (int) val);
 }
 
 /**
@@ -78,6 +90,27 @@ ldapError (ldapContext *context, int type)
 }
 
 /**
+ * Read length and attribute from stream
+ * @param context ldap message context
+ * @return attribute or NULL of length is zero
+ **/
+static unsigned char *
+readAttr (ldapContext *context)
+{
+    unsigned char len = getByte (context);
+    printD("Attribute length: " << dec << (int) len);
+    if (len == 0) {
+        return NULL;
+    }
+    unsigned char *data = new unsigned char[len];
+    for (unsigned i = 0; i < len; ++i) {
+        data[i] = getByte (context);
+    }
+    printD("Received attribute: " << data);
+    return data;
+}
+
+/**
  * Wrap the ldapResult into ldapMessage
  * @param context ldap message context
  **/
@@ -91,7 +124,7 @@ generateLdapMessage (ldapContext *context)
     protocolOp[0] = MSG_LDAP;
     protocolOp[1] = length - 2; // except Ox3O LL
     protocolOp[2] = MSG_ID;
-    protocolOp[3] = 0x01;
+    protocolOp[3] = MSG_ONE;
     protocolOp[4] = context->msgId;
     protocolOp[5] = context->responseProtocol;
     protocolOp[6] = context->resultlen;
@@ -110,7 +143,7 @@ generateLdapMessage (ldapContext *context)
         cerr << endl;
     }
 
-    return new ldapResponse(protocolOp, length);
+    return new ldapResponse (protocolOp, length);
 }
 
 /**
@@ -167,18 +200,13 @@ processBindRequestAuth (ldapContext *context)
 {
     unsigned char data = getByte (context);
 
-    if (data != MSG_BIND_REQUEST_AUTH) {
-        pErrHex ("Invalid bindRequest auth, should start with 0x80", data);
-        return ldapError (context, ERR_BIND_REQUEST);
-    }
+    EXPECT (data, MSG_BIND_REQUEST_AUTH);
 
     // simple auth length
-    unsigned char len = getByte (context);
+    unsigned char *name = readAttr (context);
 
-    char *name = NULL;
-
-    if (len) {
-        return ldapError (context, ERR_NOT_IMPLEMENTED);
+    if (name) {
+        free (name);
     }
 
     return processMessageEnd (context);
@@ -193,16 +221,12 @@ processBindRequestName (ldapContext *context)
 {
     unsigned char data = getByte (context);
 
-    if (data != MSG_BIND_REQUEST_NAME) {
-        pErrHex ("Invalid bindRequest name, should start with 0x04", data);
-        return ldapError (context, ERR_BIND_REQUEST);
-    }
-
+    EXPECT (data, MSG_PROP);
     // name length
-    unsigned char len = getByte (context);
+    unsigned char *name = readAttr (context);
 
-    if (len) {
-        return ldapError (context, ERR_NOT_IMPLEMENTED);
+    if (name) {
+        free (name);
     }
 
     return processBindRequestAuth (context);
@@ -219,26 +243,78 @@ processBindRequest (ldapContext *context)
 
     unsigned char data = getByte (context);
 
-    if (data != MSG_ID) {
-        pErrHex ("Invalid bindRequest sequence, should be 0x02", data);
-        return ldapError (context, ERR_BIND_REQUEST);
-    }
+    EXPECT (data, MSG_ID);
 
     data = getByte (context);
 
-    if (data != 0x01) {
-        pErrHex ("Invalid bindRequest sequence, should be 0x01", data);
-        return ldapError (context, ERR_BIND_REQUEST);
-    }
+    EXPECT (data, MSG_ONE);
 
     data = getByte (context);
 
-    if (data < 1 || data > 127) {
-        pErrHex ("Invalid bindRequest version, should be in <1, 127>", data);
-        return ldapError (context, ERR_BIND_REQUEST);
-    }
+    EXPECT_RANGE(data, 1, 127, ERR_BIND_REQUEST);
 
     return processBindRequestName (context);
+}
+
+/**
+ * Process searchRequest header
+ * @param context ldap message context
+ **/
+static ldapResponse *
+processSearchRequest (ldapContext *context)
+{
+    // parse baseObject
+    unsigned char data = getByte (context);
+    EXPECT (data, MSG_PROP);
+    unsigned char *baseObject = readAttr (context);
+
+    if (baseObject) {
+        free (baseObject);
+    }
+
+    // parse scope
+    data = getByte (context);
+    EXPECT (data, MSG_ATTR);
+
+    data = getByte (context);
+    EXPECT (data, MSG_ONE);
+
+    data = getByte (context);
+    EXPECT_RANGE(data, 0, 2, ERR_SEARCH_REQUEST);
+
+    // parse derefAliases
+    data = getByte (context);
+    EXPECT (data, MSG_ATTR);
+
+    data = getByte (context);
+    EXPECT (data, MSG_ONE);
+
+    data = getByte (context);
+    EXPECT_RANGE(data, 0, 3, ERR_SEARCH_REQUEST);
+
+    //parse sizeLimit
+    data = getByte (context);
+    EXPECT (data, MSG_ID);
+
+    data = getByte (context);
+    EXPECT_RANGE(data, 1, 4, ERR_SEARCH_REQUEST);
+
+    data = getByte (context);
+    EXPECT_RANGE(data, 0, 255, ERR_SEARCH_REQUEST); //FIXME support INTMAX
+
+    //parse timelimit
+    data = getByte (context);
+    EXPECT (data, MSG_ID);
+
+    data = getByte (context);
+    EXPECT_RANGE(data, 1, 4, ERR_SEARCH_REQUEST);
+
+    data = getByte (context);
+    EXPECT_RANGE(data, 0, 255, ERR_SEARCH_REQUEST); //FIXME support INTMAX
+
+    //TODO parse FILTER
+
+    return NULL;
 }
 
 /**
@@ -277,15 +353,9 @@ processLdapMessage (ldapContext *context)
     // message ID FIXME this should be in <0, 2^32-1>
     context->msgId = getByte (context);
 
-    if (data1 != MSG_ID) {
-        pErrHex ("Invalid message, should be 0x02", data1);
-        return ldapError (context, ERR_MSG);
-    }
+    EXPECT (data1, MSG_ID);
 
-    if (data2 < 0x1 || data2 > 0x4) {
-        pErrHex ("Invalid message, should be in <0x1, 0x4>", data2);
-        return ldapError (context, ERR_MSG);
-    }
+    EXPECT_RANGE(data2, 1, 4, ERR_MSG);
 
     printD ("Message ID: " << context->msgId);
     return processProtocolOp (context);
@@ -317,6 +387,8 @@ processLength (ldapContext *context)
             switch (context->protocol) {
                 case MSG_BIND_REQUEST:
                     return processBindRequest (context);
+                case MSG_SEARCH_REQUEST:
+                    return processSearchRequest (context);
             }
             break;
     }
@@ -337,10 +409,7 @@ processMessage (int client)
     // read first two bytes expect LdapMessage - 0x30 and length of L1 message
     int type = getByte (context);
 
-    if (type != MSG_LDAP) {
-        pErrHex ("Invalid message header", type);
-        return ldapError (context, ERR_HEAD);
-    }
+    EXPECT (type, MSG_LDAP);
 
     return processLength (context);
 }
