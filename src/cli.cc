@@ -3,6 +3,17 @@
 
 using namespace std;
 
+/**
+ * Print an error with hexadecimal value
+ * @param msg error message string
+ * @param val numerical value to be represented as hexadecimal number
+ **/
+void
+pErrHex (const char *msg, unsigned char val)
+{
+    printE (msg << " : 0x" << hex << (int) val);
+}
+
 bool
 parseCli (int argc, char const* argv[], config& c)
 {

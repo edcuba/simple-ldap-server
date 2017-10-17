@@ -19,9 +19,12 @@ class config
     std::string file;
 };
 
+void
+pErrHex (const char *msg, unsigned char val);
+
 bool
-parseCli (int argc, char const* argv[], config& c);
+parseCli (int argc, char const *argv[], config &c);
 bool
-isHelp (int argc, char const* argv[]);
+isHelp (int argc, char const *argv[]);
 
 #endif

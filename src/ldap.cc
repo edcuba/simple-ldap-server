@@ -5,57 +5,10 @@
 using namespace std;
 
 /**
- * LDAP context structure
- * represents LDAP request
- **/
-class ldapContext
-{
-  public:
-    ldapContext (int _client) { client = _client; }
-    int client = 0;
-    int level = 0;
-    int length1 = 0;
-    int length2 = 0;
-    int received1 = 0;
-    int received2 = 0;
-    int msgId = 0;
-    int protocol = 0;
-    unsigned char *result = NULL;
-    int resultlen = 0;
-    int responseProtocol = 0;
-};
-
-ldapResponse *
-processLength (ldapContext *context);
-
-/**
- * Print an error with hexadecimal value
- * @param msg error message string
- * @param val numerical value to be represented as hexadecimal number
- **/
-static void
-pErrHex (const char *msg, unsigned char val)
-{
-    printE (msg << " : 0x" << hex << (int) val);
-}
-
-#define EXPECT(data, val)                                                         \
-    if (data != val) {                                                            \
-        printE ("expected: 0x" << hex << val << ", got: 0x" << hex << (int) data); \
-        return ldapError (context, val);                                          \
-    }
-
-#define EXPECT_RANGE(data, from, to, err)                                                \
-    if (data < from || data > to) {                                                      \
-        printE ("expected <" << from << ", " << to << ">, got: 0x" << hex << (int) data); \
-        return ldapError (context, err);                                                 \
-    }
-
-/**
  * Read single byte from socket descriptor and count in to actual level
  * @param context ldap message context
  **/
-static unsigned char
+unsigned char
 getByte (ldapContext *context)
 {
     switch (context->level) {
@@ -75,7 +28,7 @@ getByte (ldapContext *context)
  * @param context ldap message context
  * @param type error type code
  **/
-static ldapResponse *
+ldapResponse *
 ldapError (ldapContext *context, int type)
 {
     free (context);
@@ -98,7 +51,7 @@ static unsigned char *
 readAttr (ldapContext *context)
 {
     unsigned char len = getByte (context);
-    printD("Attribute length: " << dec << (int) len);
+    printD ("Attribute length: " << dec << (int) len);
     if (len == 0) {
         return NULL;
     }
@@ -106,7 +59,7 @@ readAttr (ldapContext *context)
     for (unsigned i = 0; i < len; ++i) {
         data[i] = getByte (context);
     }
-    printD("Received attribute: " << data);
+    printD ("Received attribute: " << data);
     return data;
 }
 
@@ -137,7 +90,7 @@ generateLdapMessage (ldapContext *context)
 
     if (DEBUG) {
         printD ("Response message");
-        for (int i = 0; i < length; ++i) {
+        for (unsigned i = 0; i < length; ++i) {
             cerr << " 0x" << hex << (int) protocolOp[i];
         }
         cerr << endl;
@@ -170,8 +123,9 @@ generateResponse (ldapContext *context)
     switch (context->protocol) {
         case MSG_BIND_REQUEST:
             context->responseProtocol = MSG_BIND_RESPONSE;
-            generateResultSuccess (context);
+            return generateResultSuccess (context);
     }
+    return ldapError (context, ERR_NOT_IMPLEMENTED);
 }
 
 /**
@@ -199,8 +153,7 @@ static ldapResponse *
 processBindRequestAuth (ldapContext *context)
 {
     unsigned char data = getByte (context);
-
-    EXPECT (data, MSG_BIND_REQUEST_AUTH);
+    EXPECT (context, data, MSG_BIND_REQUEST_AUTH);
 
     // simple auth length
     unsigned char *name = readAttr (context);
@@ -220,9 +173,8 @@ static ldapResponse *
 processBindRequestName (ldapContext *context)
 {
     unsigned char data = getByte (context);
+    EXPECT (context, data, MSG_PROP);
 
-    EXPECT (data, MSG_PROP);
-    // name length
     unsigned char *name = readAttr (context);
 
     if (name) {
@@ -242,16 +194,13 @@ processBindRequest (ldapContext *context)
     printD ("Protocol: bindRequest");
 
     unsigned char data = getByte (context);
-
-    EXPECT (data, MSG_ID);
-
-    data = getByte (context);
-
-    EXPECT (data, MSG_ONE);
+    EXPECT (context, data, MSG_ID);
 
     data = getByte (context);
+    EXPECT (context, data, MSG_ONE);
 
-    EXPECT_RANGE(data, 1, 127, ERR_BIND_REQUEST);
+    data = getByte (context);
+    EXPECT_RANGE (context, data, 1, 127, ERR_BIND_REQUEST);
 
     return processBindRequestName (context);
 }
@@ -265,54 +214,45 @@ processSearchRequest (ldapContext *context)
 {
     // parse baseObject
     unsigned char data = getByte (context);
-    EXPECT (data, MSG_PROP);
+    EXPECT (context, data, MSG_PROP);
     unsigned char *baseObject = readAttr (context);
-
     if (baseObject) {
         free (baseObject);
     }
 
     // parse scope
     data = getByte (context);
-    EXPECT (data, MSG_ATTR);
-
+    EXPECT (context, data, MSG_ATTR);
     data = getByte (context);
-    EXPECT (data, MSG_ONE);
-
+    EXPECT (context, data, MSG_ONE);
     data = getByte (context);
-    EXPECT_RANGE(data, 0, 2, ERR_SEARCH_REQUEST);
+    EXPECT_RANGE (context, data, 0, 2, ERR_SEARCH_REQUEST);
 
     // parse derefAliases
     data = getByte (context);
-    EXPECT (data, MSG_ATTR);
-
+    EXPECT (context, data, MSG_ATTR);
     data = getByte (context);
-    EXPECT (data, MSG_ONE);
-
+    EXPECT (context, data, MSG_ONE);
     data = getByte (context);
-    EXPECT_RANGE(data, 0, 3, ERR_SEARCH_REQUEST);
+    EXPECT_RANGE (context, data, 0, 3, ERR_SEARCH_REQUEST);
 
-    //parse sizeLimit
+    // parse sizeLimit
     data = getByte (context);
-    EXPECT (data, MSG_ID);
-
+    EXPECT (context, data, MSG_ID);
     data = getByte (context);
-    EXPECT_RANGE(data, 1, 4, ERR_SEARCH_REQUEST);
-
+    EXPECT_RANGE (context, data, 1, 4, ERR_SEARCH_REQUEST);
     data = getByte (context);
-    EXPECT_RANGE(data, 0, 255, ERR_SEARCH_REQUEST); //FIXME support INTMAX
+    EXPECT_RANGE (context, data, 0, 255, ERR_SEARCH_REQUEST); // FIXME support INTMAX
 
-    //parse timelimit
+    // parse timelimit
     data = getByte (context);
-    EXPECT (data, MSG_ID);
-
+    EXPECT (context, data, MSG_ID);
     data = getByte (context);
-    EXPECT_RANGE(data, 1, 4, ERR_SEARCH_REQUEST);
-
+    EXPECT_RANGE (context, data, 1, 4, ERR_SEARCH_REQUEST);
     data = getByte (context);
-    EXPECT_RANGE(data, 0, 255, ERR_SEARCH_REQUEST); //FIXME support INTMAX
+    EXPECT_RANGE (context, data, 0, 255, ERR_SEARCH_REQUEST); // FIXME support INTMAX
 
-    //TODO parse FILTER
+    context->filter = parseFilter (context);
 
     return NULL;
 }
@@ -345,17 +285,15 @@ static ldapResponse *
 processLdapMessage (ldapContext *context)
 {
     // 0x02
-    unsigned char data1 = getByte (context);
-
-    // FIXME not sure what this is <0x01, 0x04>
-    unsigned char data2 = getByte (context);
+    unsigned char data = getByte (context);
+    EXPECT (context, data, MSG_ID);
 
     // message ID FIXME this should be in <0, 2^32-1>
     context->msgId = getByte (context);
 
-    EXPECT (data1, MSG_ID);
-
-    EXPECT_RANGE(data2, 1, 4, ERR_MSG);
+    // FIXME not sure what this is <0x01, 0x04>
+    data = getByte (context);
+    EXPECT_RANGE (context, data, 1, 4, ERR_MSG);
 
     printD ("Message ID: " << context->msgId);
     return processProtocolOp (context);
@@ -409,7 +347,7 @@ processMessage (int client)
     // read first two bytes expect LdapMessage - 0x30 and length of L1 message
     int type = getByte (context);
 
-    EXPECT (type, MSG_LDAP);
+    EXPECT (context, type, MSG_LDAP);
 
     return processLength (context);
 }

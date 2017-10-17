@@ -3,6 +3,10 @@
 
 #include <cstring>
 
+class ldapContext;
+
+#include "filter.h"
+
 // error types
 #define ERR_HEAD 0
 #define ERR_LENGTH 1
@@ -31,6 +35,22 @@ const unsigned char RESPONSE_SUCC[] = { 0xA, 0x1, 0x0, 0x4, 0x0, 0x4, 0x0 };
 
 #define MSG_SEARCH_REQUEST 0x63
 
+#define EXPECT(context, data, val)                                                 \
+    if (data != val) {                                                             \
+        printE ("expected: 0x" << hex << val << ", got: 0x" << hex << (int) data); \
+        return ldapError (context, val);                                           \
+    }
+
+#define EXPECT_RANGE(context, data, from, to, err)                                        \
+    if (data < from || data > to) {                                                       \
+        printE ("expected <" << from << ", " << to << ">, got: 0x" << hex << (int) data); \
+        return ldapError (context, err);                                                  \
+    }
+
+/**
+ * LDAP response structure
+ * represents data being send back to client and their length
+ **/
 class ldapResponse
 {
   public:
@@ -43,7 +63,38 @@ class ldapResponse
     size_t length = 0;
 };
 
+/**
+ * LDAP context structure
+ * represents LDAP request
+ **/
+class ldapContext
+{
+  public:
+    ldapContext (int _client) { client = _client; }
+    int client = 0;
+    int level = 0;
+    int length1 = 0;
+    int length2 = 0;
+    int received1 = 0;
+    int received2 = 0;
+    int msgId = 0;
+    int protocol = 0;
+    unsigned char *result = NULL;
+    int resultlen = 0;
+    int responseProtocol = 0;
+    ldapFilter *filter = NULL;
+};
+
+ldapResponse *
+processLength (ldapContext *context);
+
 ldapResponse *
 processMessage (int client);
+
+unsigned char
+getByte (ldapContext *context);
+
+ldapResponse *
+ldapError (ldapContext *context, int type);
 
 #endif
