@@ -2,8 +2,10 @@
 #define LDAP_H
 
 #include <cstring>
+#include <vector>
 
 class ldapContext;
+class ldapResponse;
 
 #include "filter.h"
 
@@ -14,6 +16,8 @@ class ldapContext;
 #define ERR_UNKNOWN_PROTOCOL 3
 #define ERR_BIND_REQUEST 4
 #define ERR_SEARCH_REQUEST 5
+#define ERR_FILTER 6
+#define BOOL_TRUE 0xFF
 
 #define ERR_NOT_IMPLEMENTED -1
 
@@ -35,16 +39,16 @@ const unsigned char RESPONSE_SUCC[] = { 0xA, 0x1, 0x0, 0x4, 0x0, 0x4, 0x0 };
 
 #define MSG_SEARCH_REQUEST 0x63
 
-#define EXPECT(context, data, val)                                                 \
-    if (data != val) {                                                             \
-        printE ("expected: 0x" << hex << val << ", got: 0x" << hex << (int) data); \
-        return ldapError (context, val);                                           \
+#define EXPECT(context, data, val)                                                           \
+    if (data != val) {                                                                       \
+        printE ("expected: 0x" << std::hex << val << ", got: 0x" << std::hex << (int) data); \
+        return ldapError (context, val);                                                     \
     }
 
-#define EXPECT_RANGE(context, data, from, to, err)                                        \
-    if (data < from || data > to) {                                                       \
-        printE ("expected <" << from << ", " << to << ">, got: 0x" << hex << (int) data); \
-        return ldapError (context, err);                                                  \
+#define EXPECT_RANGE(context, data, from, to, err)                                             \
+    if (data < from || data > to) {                                                            \
+        printE ("expected <" << from << ", " << to << ">, got: 0x" << std::hex << (int) data); \
+        return ldapError (context, err);                                                       \
     }
 
 /**
@@ -61,6 +65,19 @@ class ldapResponse
     }
     unsigned char *msg = NULL;
     size_t length = 0;
+};
+
+class ldapSearch
+{
+  public:
+    ldapFilter filter;
+    std::vector<unsigned char *> attrs;
+    unsigned char *baseObject = NULL;
+    unsigned char scope = 0;
+    unsigned char derefAliases = 0;
+    int sizeLimit = 0;
+    int timeLimit = 0;
+    bool typesonly = false;
 };
 
 /**
@@ -82,7 +99,7 @@ class ldapContext
     unsigned char *result = NULL;
     int resultlen = 0;
     int responseProtocol = 0;
-    ldapFilter *filter = NULL;
+    ldapSearch *search = NULL;
 };
 
 ldapResponse *
@@ -91,10 +108,10 @@ processLength (ldapContext *context);
 ldapResponse *
 processMessage (int client);
 
-unsigned char
-getByte (ldapContext *context);
-
 ldapResponse *
 ldapError (ldapContext *context, int type);
+
+ldapResponse *
+processSearchDescList (ldapContext *context);
 
 #endif

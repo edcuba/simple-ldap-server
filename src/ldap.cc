@@ -5,25 +5,6 @@
 using namespace std;
 
 /**
- * Read single byte from socket descriptor and count in to actual level
- * @param context ldap message context
- **/
-unsigned char
-getByte (ldapContext *context)
-{
-    switch (context->level) {
-        case 1:
-            context->received1 += 1;
-            break;
-        case 2:
-            context->received2 += 1;
-            break;
-    }
-
-    return receiveByte (context->client);
-}
-
-/**
  * Generate response with error code
  * @param context ldap message context
  * @param type error type code
@@ -31,7 +12,7 @@ getByte (ldapContext *context)
 ldapResponse *
 ldapError (ldapContext *context, int type)
 {
-    free (context);
+    delete context;
     switch (type) {
         case ERR_NOT_IMPLEMENTED:
             printE ("Feature not implemented");
@@ -40,27 +21,6 @@ ldapError (ldapContext *context, int type)
             break;
     }
     return NULL;
-}
-
-/**
- * Read length and attribute from stream
- * @param context ldap message context
- * @return attribute or NULL of length is zero
- **/
-static unsigned char *
-readAttr (ldapContext *context)
-{
-    unsigned char len = getByte (context);
-    printD ("Attribute length: " << dec << (int) len);
-    if (len == 0) {
-        return NULL;
-    }
-    unsigned char *data = new unsigned char[len];
-    for (unsigned i = 0; i < len; ++i) {
-        data[i] = getByte (context);
-    }
-    printD ("Received attribute: " << data);
-    return data;
 }
 
 /**
@@ -86,7 +46,7 @@ generateLdapMessage (ldapContext *context)
     memcpy (protocolOp + RESPONSE_LEN, context->result, context->resultlen);
 
     // free the context
-    free (context);
+    delete context;
 
     if (DEBUG) {
         printD ("Response message");
@@ -159,7 +119,7 @@ processBindRequestAuth (ldapContext *context)
     unsigned char *name = readAttr (context);
 
     if (name) {
-        free (name);
+        delete name;
     }
 
     return processMessageEnd (context);
@@ -178,7 +138,7 @@ processBindRequestName (ldapContext *context)
     unsigned char *name = readAttr (context);
 
     if (name) {
-        free (name);
+        delete name;
     }
 
     return processBindRequestAuth (context);
@@ -206,55 +166,93 @@ processBindRequest (ldapContext *context)
 }
 
 /**
+ * Process searchRequest AttributeDescList property
+ * @param context ldap message context
+ **/
+ldapResponse *
+processSearchDescList (ldapContext *context)
+{
+    printD ("Parsing description list");
+    unsigned char data = getByte (context);
+    EXPECT (context, data, MSG_LDAP);
+
+    unsigned char len = getByte (context);
+    int limit = context->received1 + len;
+
+    while (context->received1 < limit) {
+        data = getByte (context);
+        EXPECT (context, data, MSG_PROP);
+        context->search->attrs.push_back (readAttr (context));
+    }
+
+    return processMessageEnd (context);
+}
+
+/**
  * Process searchRequest header
  * @param context ldap message context
  **/
 static ldapResponse *
 processSearchRequest (ldapContext *context)
 {
+    printD ("Protocol: searchRequest");
+
+    ldapSearch *search = new ldapSearch ();
+
+    context->search = search;
+
     // parse baseObject
     unsigned char data = getByte (context);
     EXPECT (context, data, MSG_PROP);
-    unsigned char *baseObject = readAttr (context);
-    if (baseObject) {
-        free (baseObject);
-    }
+
+    printD ("baseObject:");
+    search->baseObject = readAttr (context);
 
     // parse scope
     data = getByte (context);
     EXPECT (context, data, MSG_ATTR);
     data = getByte (context);
     EXPECT (context, data, MSG_ONE);
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 0, 2, ERR_SEARCH_REQUEST);
+    search->scope = getByte (context);
+
+    printD ("scope:");
+    EXPECT_RANGE (context, search->scope, 0, 2, ERR_SEARCH_REQUEST);
 
     // parse derefAliases
     data = getByte (context);
     EXPECT (context, data, MSG_ATTR);
     data = getByte (context);
     EXPECT (context, data, MSG_ONE);
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 0, 3, ERR_SEARCH_REQUEST);
+    search->derefAliases = getByte (context);
+
+    printD ("derefAliases:");
+    EXPECT_RANGE (context, search->derefAliases, 0, 3, ERR_SEARCH_REQUEST);
 
     // parse sizeLimit
     data = getByte (context);
     EXPECT (context, data, MSG_ID);
     data = getByte (context);
     EXPECT_RANGE (context, data, 1, 4, ERR_SEARCH_REQUEST);
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 0, 255, ERR_SEARCH_REQUEST); // FIXME support INTMAX
+    printD ("sizeLimit:");
+    search->sizeLimit = getByte (context);
 
-    // parse timelimit
+    // parse timeLimit
     data = getByte (context);
     EXPECT (context, data, MSG_ID);
     data = getByte (context);
     EXPECT_RANGE (context, data, 1, 4, ERR_SEARCH_REQUEST);
+    printD ("timeLimit:");
+    search->timeLimit = getByte (context);
+
+    // parse typesonly
     data = getByte (context);
-    EXPECT_RANGE (context, data, 0, 255, ERR_SEARCH_REQUEST); // FIXME support INTMAX
+    EXPECT (context, data, MSG_ONE);
+    data = getByte (context);
+    EXPECT (context, data, MSG_ONE);
+    printD ("typesonly:");
+    search->typesonly = (getByte (context) == BOOL_TRUE) ? true : false;
 
-    context->filter = parseFilter (context);
-
-    return NULL;
+    return parseFilter (context);
 }
 
 /**

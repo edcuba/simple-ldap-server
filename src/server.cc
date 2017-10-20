@@ -1,5 +1,4 @@
 #include "server.h"
-#include "ldap.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
@@ -25,6 +24,45 @@ receiveByte (int client)
 }
 
 /**
+ * Read single byte from socket descriptor and count in to actual level
+ * @param context ldap message context
+ **/
+unsigned char
+getByte (ldapContext *context)
+{
+    switch (context->level) {
+        case 2:
+            context->received2 += 1;
+        case 1:
+            context->received1 += 1;
+            break;
+    }
+
+    return receiveByte (context->client);
+}
+
+/**
+ * Read length and attribute from stream
+ * @param context ldap message context
+ * @return attribute or NULL of length is zero
+ **/
+unsigned char *
+readAttr (ldapContext *context)
+{
+    unsigned char len = getByte (context);
+    printD ("Attribute length: " << dec << (int) len);
+    if (len == 0) {
+        return NULL;
+    }
+    unsigned char *data = new unsigned char[len];
+    for (unsigned i = 0; i < len; ++i) {
+        data[i] = getByte (context);
+    }
+    printD ("Received attribute: " << data);
+    return data;
+}
+
+/**
  * Close socket and print debug line if applicable
  * @param client socket descriptor
  **/
@@ -44,8 +82,8 @@ handleClient (int client)
 {
     printD ("Thread handling client " << client);
     ldapResponse *response = processMessage (client);
-    write(client, response->msg, response->length);
-    response = processMessage(client);
+    write (client, response->msg, response->length);
+    response = processMessage (client);
 
     sclose (client);
 }

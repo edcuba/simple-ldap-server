@@ -1,4 +1,24 @@
 #include "filter.h"
+#include "cli.h"
+#include "server.h"
+
+static ldapResponse *
+parseFilterEq (ldapContext *context)
+{
+    ldapFilter &filter = context->search->filter;
+
+    // parse attribute
+    unsigned char data = getByte (context);
+    EXPECT (context, data, MSG_PROP);
+    filter.attributeDesc = readAttr (context);
+
+    // parse value
+    data = getByte (context);
+    EXPECT (context, data, MSG_PROP);
+    filter.assertionValue = readAttr (context);
+
+    return processSearchDescList (context);
+}
 
 /**
  * Parse filter from message into ldapFilter structure
@@ -10,23 +30,28 @@
  *  - substrings    (0xA4)
  *
  * @context ldap message context
- * @return filter structure
+ * @return True if operation was successfull
  **/
-ldapFilter *
+ldapResponse *
 parseFilter (ldapContext *context)
 {
-    ldapFilter *filter = new ldapFilter ();
+    printD ("Parsing filter");
 
+    // get filter type
     unsigned char data = getByte (context);
+
+    // get filter length
+    context->search->filter.len = getByte (context);
 
     switch (data) {
         case FILTER_OR:
         case FILTER_AND:
         case FILTER_NOT:
         case FILTER_SUB:
-        case FILTER_EQ:
             break;
+        case FILTER_EQ:
+            return parseFilterEq (context);
     }
 
-    return filter;
+    return ldapError (context, ERR_FILTER);
 }
