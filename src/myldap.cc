@@ -1,13 +1,15 @@
 #include "myldap.h"
 #include "cli.h"
+#include "csv.h"
 #include "server.h"
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
 int
-main (int argc, char const* argv[])
+main (int argc, char const *argv[])
 {
     config c;
 
@@ -18,8 +20,16 @@ main (int argc, char const* argv[])
         return 1;
     }
 
-    printD ("Starting on port: " << c.port);
     printD ("Input file: '" << c.file << "'");
+
+    printD ("Loading database");
+    c.data = loadDB (c.file);
+
+    if (c.data == NULL) {
+        return 2;
+    }
+
+    printD ("Starting on port: " << c.port);
 
     return runServer (c);
 }

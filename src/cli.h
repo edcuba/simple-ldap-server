@@ -1,7 +1,9 @@
+#include "csv.h"
 #include "myldap.h"
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #ifndef CLI_H
 #define CLI_H
@@ -17,6 +19,7 @@ class config
   public:
     int port = 389;
     std::string file;
+    std::vector<entry *> *data = NULL;
 };
 
 void

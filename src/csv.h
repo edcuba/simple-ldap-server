@@ -1,7 +1,20 @@
 #ifndef CSV_H
 #define CSV_H
 
-void
-loadDB ();
+#include <string>
+#include <vector>
+
+using namespace std;
+
+class entry
+{
+  public:
+    string cn;
+    string login;
+    string email;
+};
+
+vector<entry *> *
+loadDB (const string &f);
 
 #endif

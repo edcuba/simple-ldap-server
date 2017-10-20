@@ -1,40 +1,35 @@
 #include "cli.h"
 #include <fstream>
 #include <sstream>
-#include <string>
-#include <vector>
 
 using namespace std;
 
-class entry
+/**
+ * Load user data from CSV
+ **/
+vector<entry *> *
+loadDB (const string &f)
 {
-  public:
-    string name;
-    string login;
-    string email;
-};
+    ifstream data (f);
 
-void
-loadDB ()
-{
-    ifstream data ("static/isa2017-ldap.csv");
+    if (!data.is_open ()) {
+        printE ("Failed to open database: '" << f << "'");
+        return NULL;
+    }
 
     string line;
 
-    vector<entry *> dataset;
+    vector<entry *> *dataset = new vector<entry *>;
 
     while (getline (data, line)) {
         stringstream ss (line);
         entry *tmp = new entry ();
-        getline (ss, tmp->name, ';');
+        getline (ss, tmp->cn, ';');
         getline (ss, tmp->login, ';');
         getline (ss, tmp->email, ';');
-        dataset.push_back (tmp);
-    }
-
-    for (auto &e : dataset) {
-        printD (e->name << " " << e->login << " " << e->email);
+        dataset->push_back (tmp);
     }
 
     data.close ();
+    return dataset;
 }
