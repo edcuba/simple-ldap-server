@@ -2,22 +2,55 @@
 #include "cli.h"
 #include "server.h"
 
-static ldapResponse *
-parseFilterEq (ldapContext *context)
-{
-    ldapFilter &filter = context->search->filter;
+using namespace std;
 
+#define CHECK(data, val) \
+    if (data != val)     \
+    throw runtime_error ("Failed to parse filter")
+
+void
+ldapContext::parseFilterEq (ldapFilter &filter)
+{
     // parse attribute
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_PROP);
-    filter.attributeDesc = readAttr (context);
+    unsigned char data = getByte ();
+    CHECK (data, MSG_PROP);
+    filter.attributeDesc = readAttr ();
 
     // parse value
-    data = getByte (context);
-    EXPECT (context, data, MSG_PROP);
-    filter.assertionValue = readAttr (context);
+    data = getByte ();
+    CHECK (data, MSG_PROP);
+    filter.assertionValue = readAttr ();
+}
 
-    return processSearchDescList (context);
+ldapFilter
+ldapContext::parseSubFilter ()
+{
+    // get filter type
+    unsigned char data = getByte ();
+
+    // get filter length
+    ldapFilter filter;
+    filter.len = getByte ();
+
+    switch (data) {
+        case FILTER_OR:
+            filter.type = FILTER_OR;
+            break;
+        case FILTER_AND:
+            filter.type = FILTER_AND;
+            break;
+        case FILTER_NOT:
+            filter.type = FILTER_NOT;
+        case FILTER_SUB:
+            filter.type = FILTER_SUB;
+            break;
+        case FILTER_EQ:
+            filter.type = FILTER_EQ;
+            parseFilterEq (filter);
+            break;
+    }
+
+    return filter;
 }
 
 /**
@@ -32,26 +65,16 @@ parseFilterEq (ldapContext *context)
  * @context ldap message context
  * @return True if operation was successfull
  **/
-ldapResponse *
-parseFilter (ldapContext *context)
+ldapResponse
+ldapContext::parseFilter ()
 {
-    printD ("Parsing filter");
+    printD ("Parsing filters");
 
-    // get filter type
-    unsigned char data = getByte (context);
-
-    // get filter length
-    context->search->filter.len = getByte (context);
-
-    switch (data) {
-        case FILTER_OR:
-        case FILTER_AND:
-        case FILTER_NOT:
-        case FILTER_SUB:
-            break;
-        case FILTER_EQ:
-            return parseFilterEq (context);
+    try {
+        search->filter = parseSubFilter ();
+    } catch (...) {
+        return ldapError (ERR_FILTER);
     }
 
-    return ldapError (context, ERR_FILTER);
+    return processSearchDescList ();
 }

@@ -1,6 +1,7 @@
 #include "server.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <string>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -25,40 +26,41 @@ receiveByte (int client)
 
 /**
  * Read single byte from socket descriptor and count in to actual level
- * @param context ldap message context
  **/
 unsigned char
-getByte (ldapContext *context)
+ldapContext::getByte ()
 {
-    switch (context->level) {
+    switch (level) {
         case 2:
-            context->received2 += 1;
+            received2 += 1;
         case 1:
-            context->received1 += 1;
+            received1 += 1;
             break;
     }
 
-    return receiveByte (context->client);
+    return receiveByte (client);
 }
 
 /**
  * Read length and attribute from stream
- * @param context ldap message context
  * @return attribute or NULL of length is zero
  **/
 unsigned char *
-readAttr (ldapContext *context)
+ldapContext::readAttr ()
 {
-    unsigned char len = getByte (context);
+    unsigned char len = getByte ();
     printD ("Attribute length: " << dec << (int) len);
     if (len == 0) {
         return NULL;
     }
     unsigned char *data = new unsigned char[len];
     for (unsigned i = 0; i < len; ++i) {
-        data[i] = getByte (context);
+        data[i] = getByte ();
     }
-    printD ("Received attribute: " << data);
+    if (DEBUG) {
+        string s (reinterpret_cast<const char *> (data), len);
+        printD ("Received attribute: " << s);
+    }
     return data;
 }
 
@@ -78,12 +80,18 @@ sclose (int client)
  * @param client socket descriptor
  **/
 static void
-handleClient (int client)
+handleClient (clientData cd)
 {
+    const int client = cd.client ();
+
     printD ("Thread handling client " << client);
-    ldapResponse *response = processMessage (client);
-    write (client, response->msg, response->length);
-    response = processMessage (client);
+    ldapResponse response = processMessage (cd);
+
+    if (response.length && response.msg) {
+        write (client, response.msg, response.length);
+    }
+
+    response = processMessage (cd);
 
     sclose (client);
 }
@@ -160,7 +168,7 @@ runServer (config &c)
         printD ("Request from " << inet_ntoa (cInfo.sin_addr) << ":" << ntohs (cInfo.sin_port));
 
         // create thread to handle client
-        thread worker = thread (handleClient, client);
+        thread worker = thread (handleClient, clientData (client, c.data));
         worker.detach ();
     }
 

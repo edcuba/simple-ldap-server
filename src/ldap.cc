@@ -6,13 +6,11 @@ using namespace std;
 
 /**
  * Generate response with error code
- * @param context ldap message context
  * @param type error type code
  **/
-ldapResponse *
-ldapError (ldapContext *context, int type)
+ldapResponse
+ldapContext::ldapError (int type)
 {
-    delete context;
     switch (type) {
         case ERR_NOT_IMPLEMENTED:
             printE ("Feature not implemented");
@@ -20,17 +18,16 @@ ldapError (ldapContext *context, int type)
         case ERR_UNKNOWN_PROTOCOL:
             break;
     }
-    return NULL;
+    return ldapResponse (NULL, 0);
 }
 
 /**
  * Wrap the ldapResult into ldapMessage
- * @param context ldap message context
  **/
-static ldapResponse *
-generateLdapMessage (ldapContext *context)
+ldapResponse
+ldapContext::generateLdapMessage ()
 {
-    size_t length = RESPONSE_LEN + context->resultlen;
+    size_t length = RESPONSE_LEN + resultlen;
 
     // initialize message header
     unsigned char *protocolOp = new unsigned char[length];
@@ -38,15 +35,12 @@ generateLdapMessage (ldapContext *context)
     protocolOp[1] = length - 2; // except Ox3O LL
     protocolOp[2] = MSG_ID;
     protocolOp[3] = MSG_ONE;
-    protocolOp[4] = context->msgId;
-    protocolOp[5] = context->responseProtocol;
-    protocolOp[6] = context->resultlen;
+    protocolOp[4] = msgId;
+    protocolOp[5] = responseProtocol;
+    protocolOp[6] = resultlen;
 
     // add rest of the message
-    memcpy (protocolOp + RESPONSE_LEN, context->result, context->resultlen);
-
-    // free the context
-    delete context;
+    memcpy (protocolOp + RESPONSE_LEN, result, resultlen);
 
     if (DEBUG) {
         printD ("Response message");
@@ -56,296 +50,302 @@ generateLdapMessage (ldapContext *context)
         cerr << endl;
     }
 
-    return new ldapResponse (protocolOp, length);
+    return ldapResponse (protocolOp, length);
 }
 
 /**
  * Generate ldapResult of type success (0)
- * @param context ldap message context
  **/
-static ldapResponse *
-generateResultSuccess (ldapContext *context)
+ldapResponse
+ldapContext::generateResultSuccess ()
 {
-    context->result = new unsigned char[RESPONSE_SUCC_LEN];
-    memcpy (context->result, RESPONSE_SUCC, RESPONSE_LEN);
-    context->resultlen = RESPONSE_SUCC_LEN;
-    return generateLdapMessage (context);
+    result = new unsigned char[RESPONSE_SUCC_LEN];
+    memcpy (result, RESPONSE_SUCC, RESPONSE_LEN);
+    resultlen = RESPONSE_SUCC_LEN;
+    return generateLdapMessage ();
+}
+
+/**
+ * Generate response to search request
+ **/
+ldapResponse
+ldapContext::generateSearchResponse ()
+{
+    return ldapError (ERR_NOT_IMPLEMENTED);
 }
 
 /**
  * Generate response to particular request
  * Select propriate ldapResult
- * @param context ldap message context
  **/
-static ldapResponse *
-generateResponse (ldapContext *context)
+ldapResponse
+ldapContext::generateResponse ()
 {
-    switch (context->protocol) {
-        case MSG_BIND_REQUEST:
-            context->responseProtocol = MSG_BIND_RESPONSE;
-            return generateResultSuccess (context);
+    switch (protocol) {
+        case PROT_BIND_REQUEST:
+            responseProtocol = PROT_BIND_RESPONSE;
+            return generateResultSuccess ();
+        case PROT_SEARCH_REQUEST:
+            return generateSearchResponse ();
+        default:
+            break;
     }
-    return ldapError (context, ERR_NOT_IMPLEMENTED);
+    return ldapError (ERR_NOT_IMPLEMENTED);
 }
 
 /**
  * Process end of the message
- * @param context ldap message context
  **/
-static ldapResponse *
-processMessageEnd (ldapContext *context)
+ldapResponse
+ldapContext::processMessageEnd ()
 {
     unsigned char data = 0; // FIXME support 0xA0
 
     if (data == 0 || data == MSG_END) {
         printD ("Message correct");
-        return generateResponse (context);
+        return generateResponse ();
     }
     printE ("Message corrupt!");
-    return ldapError (context, ERR_MSG);
+    return ldapError (ERR_MSG);
 }
 
 /**
  * Process bindRequest authentification
- * @param context ldap message context
  **/
-static ldapResponse *
-processBindRequestAuth (ldapContext *context)
+ldapResponse
+ldapContext::processBindRequestAuth ()
 {
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_BIND_REQUEST_AUTH);
+    unsigned char data = getByte ();
+    EXPECT (data, MSG_BIND_REQUEST_AUTH);
 
     // simple auth length
-    unsigned char *name = readAttr (context);
+    unsigned char *name = readAttr ();
 
     if (name) {
         delete name;
     }
 
-    return processMessageEnd (context);
+    return processMessageEnd ();
 }
 
 /**
  * Process bindRequest name
- * @param context ldap message context
  **/
-static ldapResponse *
-processBindRequestName (ldapContext *context)
+ldapResponse
+ldapContext::processBindRequestName ()
 {
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_PROP);
+    unsigned char data = getByte ();
+    EXPECT (data, MSG_PROP);
 
-    unsigned char *name = readAttr (context);
+    unsigned char *name = readAttr ();
 
     if (name) {
         delete name;
     }
 
-    return processBindRequestAuth (context);
+    return processBindRequestAuth ();
 }
 
 /**
  * Process bindRequest header
- * @param context ldap message context
  **/
-static ldapResponse *
-processBindRequest (ldapContext *context)
+ldapResponse
+ldapContext::processBindRequest ()
 {
     printD ("Protocol: bindRequest");
 
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_ID);
+    unsigned char data = getByte ();
+    EXPECT (data, MSG_ID);
 
-    data = getByte (context);
-    EXPECT (context, data, MSG_ONE);
+    data = getByte ();
+    EXPECT (data, MSG_ONE);
 
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 1, 127, ERR_BIND_REQUEST);
+    data = getByte ();
+    EXPECT_RANGE (data, 1, 127, ERR_BIND_REQUEST);
 
-    return processBindRequestName (context);
+    return processBindRequestName ();
 }
 
 /**
  * Process searchRequest AttributeDescList property
- * @param context ldap message context
  **/
-ldapResponse *
-processSearchDescList (ldapContext *context)
+ldapResponse
+ldapContext::processSearchDescList ()
 {
     printD ("Parsing description list");
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_LDAP);
+    unsigned char data = getByte ();
+    EXPECT (data, MSG_LDAP);
 
-    unsigned char len = getByte (context);
-    int limit = context->received1 + len;
+    unsigned char len = getByte ();
+    int limit = received1 + len;
 
-    while (context->received1 < limit) {
-        data = getByte (context);
-        EXPECT (context, data, MSG_PROP);
-        context->search->attrs.push_back (readAttr (context));
+    while (received1 < limit) {
+        data = getByte ();
+        EXPECT (data, MSG_PROP);
+        search->attrs.push_back (readAttr ());
     }
 
-    return processMessageEnd (context);
+    return processMessageEnd ();
 }
 
 /**
  * Process searchRequest header
- * @param context ldap message context
  **/
-static ldapResponse *
-processSearchRequest (ldapContext *context)
+ldapResponse
+ldapContext::processSearchRequest ()
 {
     printD ("Protocol: searchRequest");
 
-    ldapSearch *search = new ldapSearch ();
-
-    context->search = search;
+    search = new ldapSearch ();
 
     // parse baseObject
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_PROP);
+    unsigned char data = getByte ();
+    EXPECT (data, MSG_PROP);
 
     printD ("baseObject:");
-    search->baseObject = readAttr (context);
+    search->baseObject = readAttr ();
 
     // parse scope
-    data = getByte (context);
-    EXPECT (context, data, MSG_ATTR);
-    data = getByte (context);
-    EXPECT (context, data, MSG_ONE);
-    search->scope = getByte (context);
+    data = getByte ();
+    EXPECT (data, MSG_ATTR);
+    data = getByte ();
+    EXPECT (data, MSG_ONE);
+    search->scope = getByte ();
 
     printD ("scope:");
-    EXPECT_RANGE (context, search->scope, 0, 2, ERR_SEARCH_REQUEST);
+    EXPECT_RANGE (search->scope, 0, 2, ERR_SEARCH_REQUEST);
 
     // parse derefAliases
-    data = getByte (context);
-    EXPECT (context, data, MSG_ATTR);
-    data = getByte (context);
-    EXPECT (context, data, MSG_ONE);
-    search->derefAliases = getByte (context);
+    data = getByte ();
+    EXPECT (data, MSG_ATTR);
+    data = getByte ();
+    EXPECT (data, MSG_ONE);
+    search->derefAliases = getByte ();
 
     printD ("derefAliases:");
-    EXPECT_RANGE (context, search->derefAliases, 0, 3, ERR_SEARCH_REQUEST);
+    EXPECT_RANGE (search->derefAliases, 0, 3, ERR_SEARCH_REQUEST);
 
     // parse sizeLimit
-    data = getByte (context);
-    EXPECT (context, data, MSG_ID);
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 1, 4, ERR_SEARCH_REQUEST);
+    data = getByte ();
+    EXPECT (data, MSG_ID);
+    data = getByte ();
+    EXPECT_RANGE (data, 1, 4, ERR_SEARCH_REQUEST);
     printD ("sizeLimit:");
-    search->sizeLimit = getByte (context);
+    search->sizeLimit = getByte ();
 
     // parse timeLimit
-    data = getByte (context);
-    EXPECT (context, data, MSG_ID);
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 1, 4, ERR_SEARCH_REQUEST);
+    data = getByte ();
+    EXPECT (data, MSG_ID);
+    data = getByte ();
+    EXPECT_RANGE (data, 1, 4, ERR_SEARCH_REQUEST);
     printD ("timeLimit:");
-    search->timeLimit = getByte (context);
+    search->timeLimit = getByte ();
 
     // parse typesonly
-    data = getByte (context);
-    EXPECT (context, data, MSG_ONE);
-    data = getByte (context);
-    EXPECT (context, data, MSG_ONE);
+    data = getByte ();
+    EXPECT (data, MSG_ONE);
+    data = getByte ();
+    EXPECT (data, MSG_ONE);
     printD ("typesonly:");
-    search->typesonly = (getByte (context) == BOOL_TRUE) ? true : false;
+    search->typesonly = (getByte () == BOOL_TRUE) ? true : false;
 
-    return parseFilter (context);
+    return parseFilter ();
 }
 
 /**
  * Parse protocol type
- * @param context ldap message context
  **/
-static ldapResponse *
-processProtocolOp (ldapContext *context)
+ldapResponse
+ldapContext::processProtocolOp ()
 {
-    unsigned char protocolOp = getByte (context);
+    unsigned char protocolOp = getByte ();
 
     switch (protocolOp) {
-        case MSG_BIND_REQUEST:
-        case MSG_SEARCH_REQUEST:
-            context->protocol = protocolOp;
-            return processLength (context);
+        case PROT_BIND_REQUEST:
+            protocol = PROT_BIND_REQUEST;
+            return processLength ();
+        case PROT_SEARCH_REQUEST:
+            protocol = PROT_SEARCH_REQUEST;
+            return processLength ();
     }
 
     pErrHex ("Unknown protocol", protocolOp);
-    return ldapError (context, ERR_UNKNOWN_PROTOCOL);
+    return ldapError (ERR_UNKNOWN_PROTOCOL);
 }
 
 /**
  * Process ldapMessage header
- * @param context ldap message context
  **/
-static ldapResponse *
-processLdapMessage (ldapContext *context)
+ldapResponse
+ldapContext::processLdapMessage ()
 {
     // 0x02
-    unsigned char data = getByte (context);
-    EXPECT (context, data, MSG_ID);
+    unsigned char data = getByte ();
+    EXPECT (data, MSG_ID);
 
     // message ID FIXME this should be in <0, 2^32-1>
-    context->msgId = getByte (context);
+    msgId = getByte ();
 
     // FIXME not sure what this is <0x01, 0x04>
-    data = getByte (context);
-    EXPECT_RANGE (context, data, 1, 4, ERR_MSG);
+    data = getByte ();
+    EXPECT_RANGE (data, 1, 4, ERR_MSG);
 
-    printD ("Message ID: " << context->msgId);
-    return processProtocolOp (context);
+    printD ("Message ID: " << msgId);
+    return processProtocolOp ();
 }
 
 /**
  * Parse and process length of the next section in the message
- * @param context ldap message context
  **/
-ldapResponse *
-processLength (ldapContext *context)
+ldapResponse
+ldapContext::processLength ()
 {
-    context->level += 1;
-    unsigned char len = getByte (context);
+    level += 1;
+    unsigned char len = getByte ();
 
     if (len == 0) {
         pErrHex ("Invalid message length", len);
-        return ldapError (context, ERR_LENGTH);
+        return ldapError (ERR_LENGTH);
     }
 
-    switch (context->level) {
+    switch (level) {
         case 1:
-            context->length1 = len;
-            printD ("Level 1 length: " << dec << context->length1);
-            return processLdapMessage (context);
+            length1 = len;
+            printD ("Level 1 length: " << dec << length1);
+            return processLdapMessage ();
         case 2:
-            context->length2 = len;
-            printD ("Level 2 length: " << dec << context->length2);
-            switch (context->protocol) {
-                case MSG_BIND_REQUEST:
-                    return processBindRequest (context);
-                case MSG_SEARCH_REQUEST:
-                    return processSearchRequest (context);
+            length2 = len;
+            printD ("Level 2 length: " << dec << length2);
+            switch (protocol) {
+                case PROT_BIND_REQUEST:
+                    return processBindRequest ();
+                case PROT_SEARCH_REQUEST:
+                    return processSearchRequest ();
+                default:
+                    break;
             }
             break;
     }
-    return ldapError (context, ERR_NOT_IMPLEMENTED);
+    return ldapError (ERR_NOT_IMPLEMENTED);
 }
 
 /**
  * Process message from client and generate response
- * @param client socket descriptor
  * @return byte response
  **/
-ldapResponse *
-processMessage (int client)
+ldapResponse
+processMessage (clientData &cd)
 {
     // initialize context for communication
-    ldapContext *context = new ldapContext (client);
+    ldapContext context (cd);
 
     // read first two bytes expect LdapMessage - 0x30 and length of L1 message
-    int type = getByte (context);
+    int type = context.getByte ();
 
-    EXPECT (context, type, MSG_LDAP);
+    if (type != MSG_LDAP) {
+        printE ("Invalid LDAP header: Ox" << hex << type);
+        return context.ldapError (MSG_LDAP);
+    }
 
-    return processLength (context);
+    return context.processLength ();
 }

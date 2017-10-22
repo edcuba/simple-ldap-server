@@ -19,7 +19,14 @@ class config
   public:
     int port = 389;
     std::string file;
-    std::vector<entry *> *data = NULL;
+    std::vector<entry> *data = NULL;
+
+    ~config ()
+    {
+        if (data) {
+            delete data;
+        }
+    }
 };
 
 void

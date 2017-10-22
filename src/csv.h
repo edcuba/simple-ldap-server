@@ -14,7 +14,7 @@ class entry
     string email;
 };
 
-vector<entry *> *
+vector<entry> *
 loadDB (const string &f);
 
 #endif
