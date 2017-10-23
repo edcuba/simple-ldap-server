@@ -2,6 +2,7 @@
 #define FILTER_H
 
 #include <cstring>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -20,8 +21,8 @@ class ldapFilter
   public:
     unsigned char len = 0;
     filterType type = FILTER_UNKNOWN;
-    unsigned char *attributeDesc = NULL;
-    unsigned char *assertionValue = NULL;
+    string attributeDesc;
+    string assertionValue;
     vector<ldapFilter> subs;
 };
 

@@ -2,17 +2,12 @@
 #define CSV_H
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 using namespace std;
 
-class entry
-{
-  public:
-    string cn;
-    string login;
-    string email;
-};
+typedef unordered_map<string, string> entry;
 
 vector<entry> *
 loadDB (const string &f);

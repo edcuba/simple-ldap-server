@@ -45,22 +45,20 @@ ldapContext::getByte ()
  * Read length and attribute from stream
  * @return attribute or NULL of length is zero
  **/
-unsigned char *
+string
 ldapContext::readAttr ()
 {
     unsigned char len = getByte ();
     printD ("Attribute length: " << dec << (int) len);
+
+    string data;
     if (len == 0) {
-        return NULL;
+        return data;
     }
-    unsigned char *data = new unsigned char[len];
     for (unsigned i = 0; i < len; ++i) {
-        data[i] = getByte ();
+        data += getByte ();
     }
-    if (DEBUG) {
-        string s (reinterpret_cast<const char *> (data), len);
-        printD ("Received attribute: " << s);
-    }
+    printD ("Received attribute: " << data);
     return data;
 }
 

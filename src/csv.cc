@@ -22,11 +22,12 @@ loadDB (const string &f)
     vector<entry> *dataset = new vector<entry>;
 
     while (getline (data, line)) {
-        stringstream ss (line);
         entry tmp;
-        getline (ss, tmp.cn, ';');
-        getline (ss, tmp.login, ';');
-        getline (ss, tmp.email, ';');
+        size_t semi1 = line.find (";");
+        size_t semi2 = line.find (";", semi1 + 1);
+        tmp["cn"] = line.substr (0, semi1);
+        tmp["login"] = line.substr (semi1 + 1, semi2 - semi1 - 1);
+        tmp["email"] = line.substr (semi2 + 1, line.size () - semi2 - 1);
         dataset->push_back (tmp);
     }
 

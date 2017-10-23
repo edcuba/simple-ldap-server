@@ -71,6 +71,12 @@ ldapContext::generateResultSuccess ()
 ldapResponse
 ldapContext::generateSearchResponse ()
 {
+    vector<entry *> dataset = filterData ();
+    printD ("Results:");
+    for (auto e : dataset) {
+        printD (e->operator[] ("login")
+                << " : " << e->operator[] ("cn") << " <" << e->operator[] ("email") << ">");
+    }
     return ldapError (ERR_NOT_IMPLEMENTED);
 }
 
@@ -119,11 +125,8 @@ ldapContext::processBindRequestAuth ()
     EXPECT (data, MSG_BIND_REQUEST_AUTH);
 
     // simple auth length
-    unsigned char *name = readAttr ();
-
-    if (name) {
-        delete name;
-    }
+    string name = readAttr ();
+    printD ("Auth name: " << name);
 
     return processMessageEnd ();
 }
@@ -137,11 +140,9 @@ ldapContext::processBindRequestName ()
     unsigned char data = getByte ();
     EXPECT (data, MSG_PROP);
 
-    unsigned char *name = readAttr ();
+    string name = readAttr ();
 
-    if (name) {
-        delete name;
-    }
+    printD ("Bind name: " << name);
 
     return processBindRequestAuth ();
 }

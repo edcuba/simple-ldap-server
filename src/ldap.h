@@ -2,11 +2,13 @@
 #define LDAP_H
 
 #include <cstring>
+#include <string>
 #include <vector>
 
 class ldapContext;
 class ldapResponse;
 
+#include "csv.h"
 #include "filter.h"
 #include "server.h"
 
@@ -70,7 +72,7 @@ class ldapResponse
     ~ldapResponse ()
     {
         if (msg) {
-            delete msg;
+            delete[] msg;
         }
     }
     unsigned char *msg = NULL;
@@ -80,18 +82,9 @@ class ldapResponse
 class ldapSearch
 {
   public:
-    ~ldapSearch ()
-    {
-        if (baseObject) {
-            delete baseObject;
-        }
-        for (auto &e : attrs) {
-            delete e;
-        }
-    }
     ldapFilter filter;
-    std::vector<unsigned char *> attrs;
-    unsigned char *baseObject = NULL;
+    vector<string> attrs;
+    string baseObject;
     unsigned char scope = 0;
     unsigned char derefAliases = 0;
     int sizeLimit = 0;
@@ -117,7 +110,7 @@ class ldapContext
             delete search;
         }
         if (result) {
-            delete result;
+            delete[] result;
         }
     }
     int client = 0;
@@ -135,7 +128,7 @@ class ldapContext
 
     ldapResponse processLength ();
     ldapResponse parseFilter ();
-    unsigned char *readAttr ();
+    string readAttr ();
     unsigned char getByte ();
     ldapResponse ldapError (int type);
 
@@ -155,6 +148,7 @@ class ldapContext
     ldapResponse processProtocolOp ();
     ldapResponse processLdapMessage ();
     ldapResponse generateSearchResponse ();
+    vector<entry *> filterData ();
 };
 
 ldapResponse

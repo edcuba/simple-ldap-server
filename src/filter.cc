@@ -1,12 +1,52 @@
 #include "filter.h"
 #include "cli.h"
+#include "csv.h"
 #include "server.h"
+#include <vector>
 
 using namespace std;
 
 #define CHECK(data, val) \
     if (data != val)     \
     throw runtime_error ("Failed to parse filter")
+
+static void
+filterEq (vector<entry *> &dataset, ldapFilter &filter)
+{
+    vector<entry *> result;
+    for (auto e : dataset) {
+        auto res = e->find (filter.attributeDesc);
+        if (res != e->end () && res->second == filter.assertionValue) {
+            result.push_back (e);
+        }
+    }
+    dataset.swap (result);
+}
+
+static void
+filterDataSet (vector<entry *> &dataset, ldapFilter &filter)
+{
+    switch (filter.type) {
+        case FILTER_EQ:
+            filterEq (dataset, filter);
+            break;
+        default:
+            break;
+    }
+}
+
+vector<entry *>
+ldapContext::filterData ()
+{
+    vector<entry *> dataset;
+    if (search && data) {
+        for (auto &e : *data) {
+            dataset.push_back (&e);
+        }
+        filterDataSet (dataset, search->filter);
+    }
+    return dataset;
+}
 
 void
 ldapContext::parseFilterEq (ldapFilter &filter)
