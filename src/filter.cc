@@ -105,7 +105,7 @@ ldapContext::parseSubFilter ()
  * @context ldap message context
  * @return True if operation was successfull
  **/
-ldapResponse
+ldapMessage
 ldapContext::parseFilter ()
 {
     printD ("Parsing filters");
@@ -113,7 +113,7 @@ ldapContext::parseFilter ()
     try {
         search->filter = parseSubFilter ();
     } catch (...) {
-        return ldapError (ERR_FILTER);
+        return ldapMessage (ERR_FILTER);
     }
 
     return processSearchDescList ();

@@ -8,6 +8,8 @@
 #include <thread>
 #include <unistd.h>
 
+#include "message.h"
+
 using namespace std;
 
 /**
@@ -83,14 +85,26 @@ handleClient (clientData cd)
     const int client = cd.client ();
 
     printD ("Thread handling client " << client);
-    ldapResponse response = processMessage (cd);
 
-    if (response.length && response.msg) {
-        write (client, response.msg, response.length);
+    while (true) {
+        ldapMessage response = processMessage (cd);
+
+        const unsigned char *data = response.getData ();
+        const size_t size = response.getSize ();
+
+        if (data && size) {
+            if (DEBUG) {
+                printD ("[Client " << client << "] Response message:");
+                for (unsigned i = 0; i < size; ++i) {
+                    cerr << " 0x" << hex << (int) data[i];
+                }
+                cerr << endl;
+            }
+            write (client, data, size);
+        } else {
+            break;
+        }
     }
-
-    response = processMessage (cd);
-
     sclose (client);
 }
 

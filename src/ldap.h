@@ -6,23 +6,14 @@
 #include <vector>
 
 class ldapContext;
-class ldapResponse;
 
 #include "csv.h"
 #include "filter.h"
+#include "message.h"
+#include "response.h"
 #include "server.h"
 
-// error types
-#define ERR_HEAD 0
-#define ERR_LENGTH 1
-#define ERR_MSG 2
-#define ERR_UNKNOWN_PROTOCOL 3
-#define ERR_BIND_REQUEST 4
-#define ERR_SEARCH_REQUEST 5
-#define ERR_FILTER 6
 #define BOOL_TRUE 0xFF
-
-#define ERR_NOT_IMPLEMENTED -1
 
 #define MSG_LDAP 0x30
 #define MSG_ID 0x02
@@ -33,51 +24,17 @@ class ldapResponse;
 #define MSG_ATTR 0x0A
 #define MSG_BIND_REQUEST_AUTH 0x80
 
-#define RESPONSE_LEN 7
-
-const unsigned char RESPONSE_SUCC[] = { 0xA, 0x1, 0x0, 0x4, 0x0, 0x4, 0x0 };
-#define RESPONSE_SUCC_LEN 7
-
-typedef enum {
-    PROT_UNKNOWN = 0,
-    PROT_BIND_REQUEST = 0x60,
-    PROT_BIND_RESPONSE = 0x61,
-    PROT_SEARCH_REQUEST = 0x63
-} protocolType;
-
-#define EXPECT(data, val)                                                                    \
+#define EXPECT(data, val, err)                                                               \
     if (data != val) {                                                                       \
         printE ("expected: 0x" << std::hex << val << ", got: 0x" << std::hex << (int) data); \
-        return ldapError (val);                                                              \
+        return ldapMessage (err);                                                            \
     }
 
 #define EXPECT_RANGE(data, from, to, err)                                                      \
     if (data < from || data > to) {                                                            \
         printE ("expected <" << from << ", " << to << ">, got: 0x" << std::hex << (int) data); \
-        return ldapError (err);                                                                \
+        return ldapMessage (err);                                                              \
     }
-
-/**
- * LDAP response structure
- * represents data being send back to client and their length
- **/
-class ldapResponse
-{
-  public:
-    ldapResponse (unsigned char *data, size_t len)
-    {
-        msg = data;
-        length = len;
-    }
-    ~ldapResponse ()
-    {
-        if (msg) {
-            delete[] msg;
-        }
-    }
-    unsigned char *msg = NULL;
-    size_t length = 0;
-};
 
 class ldapSearch
 {
@@ -109,9 +66,6 @@ class ldapContext
         if (search) {
             delete search;
         }
-        if (result) {
-            delete[] result;
-        }
     }
     int client = 0;
     int level = 0;
@@ -119,39 +73,31 @@ class ldapContext
     int length2 = 0;
     int received1 = 0;
     int received2 = 0;
-    int msgId = 0;
-    protocolType protocol = PROT_UNKNOWN;
-    unsigned char *result = NULL;
-    int resultlen = 0;
-    protocolType responseProtocol = PROT_UNKNOWN;
     ldapSearch *search = NULL;
-
-    ldapResponse processLength ();
-    ldapResponse parseFilter ();
+    ldapMessageData msgData;
+    ldapMessage processLength ();
+    ldapMessage parseFilter ();
     string readAttr ();
     unsigned char getByte ();
-    ldapResponse ldapError (int type);
 
   protected:
     void parseFilterEq (ldapFilter &filter);
     ldapFilter parseSubFilter ();
     vector<entry> *data;
-    ldapResponse processSearchDescList ();
-    ldapResponse generateLdapMessage ();
-    ldapResponse generateResultSuccess ();
-    ldapResponse generateResponse ();
-    ldapResponse processMessageEnd ();
-    ldapResponse processBindRequestAuth ();
-    ldapResponse processBindRequestName ();
-    ldapResponse processBindRequest ();
-    ldapResponse processSearchRequest ();
-    ldapResponse processProtocolOp ();
-    ldapResponse processLdapMessage ();
-    ldapResponse generateSearchResponse ();
+    ldapMessage processSearchDescList ();
+    ldapMessage generateResponse ();
+    ldapMessage processMessageEnd ();
+    ldapMessage processBindRequestAuth ();
+    ldapMessage processBindRequestName ();
+    ldapMessage processBindRequest ();
+    ldapMessage processSearchRequest ();
+    ldapMessage processProtocolOp ();
+    ldapMessage processLdapMessage ();
+    ldapMessage generateSearchResponse ();
     vector<entry *> filterData ();
 };
 
-ldapResponse
+ldapMessage
 processMessage (clientData &cd);
 
 #endif
