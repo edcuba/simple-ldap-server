@@ -14,6 +14,9 @@
     std::cerr << "D: " << x << std::endl
 #define pError(x) std::cerr << "Error: " << x << " - " << strerror (errno) << std::endl
 
+/**
+ * Application configurarion
+ **/
 class config
 {
   public:

@@ -7,6 +7,9 @@
 
 using namespace std;
 
+/**
+ * Supported filter types
+ **/
 typedef enum {
     FILTER_UNKNOWN = 0,
     FILTER_AND = 0xA0,
@@ -16,6 +19,9 @@ typedef enum {
     FILTER_EQ = 0xA3
 } filterType;
 
+/**
+ * Object representation of filter
+ **/
 class ldapFilter
 {
   public:
@@ -25,7 +31,5 @@ class ldapFilter
     string assertionValue;
     vector<ldapFilter> subs;
 };
-
-#include "ldap.h"
 
 #endif

@@ -24,18 +24,9 @@ class ldapContext;
 #define MSG_ATTR 0x0A
 #define MSG_BIND_REQUEST_AUTH 0x80
 
-#define EXPECT(data, val, err)                                                               \
-    if (data != val) {                                                                       \
-        printE ("expected: 0x" << std::hex << val << ", got: 0x" << std::hex << (int) data); \
-        return ldapMessage (err);                                                            \
-    }
-
-#define EXPECT_RANGE(data, from, to, err)                                                      \
-    if (data < from || data > to) {                                                            \
-        printE ("expected <" << from << ", " << to << ">, got: 0x" << std::hex << (int) data); \
-        return ldapMessage (err);                                                              \
-    }
-
+/**
+ * Object representation of search request
+ **/
 class ldapSearch
 {
   public:
@@ -51,7 +42,8 @@ class ldapSearch
 
 /**
  * LDAP context structure
- * represents LDAP request
+ * Represents LDAP request
+ * Contains all methods used by FSM
  **/
 class ldapContext
 {
@@ -94,6 +86,7 @@ class ldapContext
     ldapMessage processProtocolOp ();
     ldapMessage processLdapMessage ();
     ldapMessage generateSearchResponse ();
+    void sendSearchEntry (entry &e);
     vector<entry *> filterData ();
 };
 

@@ -10,6 +10,9 @@ using namespace std;
     if (data != val)     \
     throw runtime_error ("Failed to parse filter")
 
+/**
+ * equalityMatch implementation
+ **/
 static void
 filterEq (vector<entry *> &dataset, ldapFilter &filter)
 {
@@ -23,6 +26,9 @@ filterEq (vector<entry *> &dataset, ldapFilter &filter)
     dataset.swap (result);
 }
 
+/**
+ * Apply single filter on dataset
+ **/
 static void
 filterDataSet (vector<entry *> &dataset, ldapFilter &filter)
 {
@@ -35,6 +41,9 @@ filterDataSet (vector<entry *> &dataset, ldapFilter &filter)
     }
 }
 
+/**
+ * Apply filters on dataset
+ **/
 vector<entry *>
 ldapContext::filterData ()
 {
@@ -48,6 +57,9 @@ ldapContext::filterData ()
     return dataset;
 }
 
+/**
+ * Parse equalityMatch filter
+ **/
 void
 ldapContext::parseFilterEq (ldapFilter &filter)
 {
@@ -62,6 +74,9 @@ ldapContext::parseFilterEq (ldapFilter &filter)
     filter.assertionValue = readAttr ();
 }
 
+/**
+ * Process single filter
+ **/
 ldapFilter
 ldapContext::parseSubFilter ()
 {

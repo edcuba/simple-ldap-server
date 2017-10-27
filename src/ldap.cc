@@ -174,6 +174,7 @@ ldapContext::processProtocolOp ()
             msgData.protocol = PROT_SEARCH_REQUEST;
             return processLength ();
         case PROT_UNBIND_REQUEST:
+            // this flag is just happily ignored
             return ldapMessage (ERR_UNBIND);
     }
 

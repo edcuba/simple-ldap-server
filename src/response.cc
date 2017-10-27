@@ -1,7 +1,45 @@
 #include "response.h"
+#include "csv.h"
 #include "ldap.h"
+#include <cstring>
+#include <string>
 
 using namespace std;
+
+void
+ldapSearchEntry::addAttribute (const char *type, string &val)
+{
+    partialList p (type);
+    p.vals.push_back (val);
+    attributes.push_back (p);
+}
+
+ldapSearchEntry::ldapSearchEntry (string &uid)
+{
+    string s ("uid=");
+    s += uid;
+    size_t len = s.length ();
+    objectName = new unsigned char[len];
+    memcpy (objectName, s.c_str (), len);
+}
+
+ldapSearchEntry::~ldapSearchEntry ()
+{
+    if (objectName) {
+        delete[] objectName;
+    }
+}
+
+void
+ldapContext::sendSearchEntry (entry &e)
+{
+    string uid = e["login"];
+    ldapSearchEntry res (uid);
+    string email = e["email"];
+    res.addAttribute ("email", email);
+    string cn = e["cn"];
+    res.addAttribute ("cn", cn);
+}
 
 /**
  * Generate response to search request
@@ -14,6 +52,8 @@ ldapContext::generateSearchResponse ()
     for (auto e : dataset) {
         // prepare response structure
         msgData.responseProtocol = PROT_SEARCH_RESULT_ENTRY;
+
+        sendSearchEntry (*e);
 
         printD (e->operator[] ("login")
                 << " : " << e->operator[] ("cn") << " <" << e->operator[] ("email") << ">");

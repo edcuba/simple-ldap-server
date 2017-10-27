@@ -9,6 +9,9 @@ typedef enum { RES_SUCCESS = 0 } ldapResultType;
 
 static const char resultSucessData[] = { 0xA, 0x1, 0x0, 0x4, 0x0, 0x4, 0x0 };
 
+/**
+ * ldapResult base abstract class
+ **/
 class ldapResult
 {
   public:
@@ -16,6 +19,9 @@ class ldapResult
     virtual const size_t getSize () const = 0;
 };
 
+/**
+ * result success wrapper
+ **/
 class ldapResultSuccess : public ldapResult
 {
   public:

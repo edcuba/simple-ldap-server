@@ -6,6 +6,9 @@
 
 using namespace std;
 
+/**
+ * Possible errors enum
+ **/
 typedef enum {
     ERR_NOT_IMPLEMENTED = -1,
     ERR_HEAD = 0,
@@ -18,6 +21,9 @@ typedef enum {
     ERR_UNBIND = 7
 } ldapErrorType;
 
+/**
+ * Supported protocols list
+ **/
 typedef enum {
     PROT_UNKNOWN = 0,
     PROT_UNBIND_REQUEST = 0x42,
@@ -28,6 +34,9 @@ typedef enum {
     PROT_SEARCH_RESULT_DONE = 0x65
 } ldapProtocolType;
 
+/**
+ * Incoming ldapMessage data wrapper
+ **/
 class ldapMessageData
 {
   public:
@@ -36,6 +45,9 @@ class ldapMessageData
     ldapProtocolType responseProtocol = PROT_UNKNOWN;
 };
 
+/**
+ * Outcoming ldapMessage data wrapper
+ **/
 class ldapMessage
 {
   public:
