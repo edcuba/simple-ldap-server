@@ -6,30 +6,22 @@ using namespace std;
 /**
  * Result message contructor
  **/
-ldapMessage::ldapMessage (const ldapMessageData &msgData, const ldapResult &result)
+ldapMessage::ldapMessage (const ldapMessageData &msgData, const string &result)
 {
-    // extract result data
-    size_t resSize = result.getSize ();
-    const char *resData = result.getData ();
-    printD ("Result size: 0x" << hex << resSize);
+    // craft message body
+    string body;
+    body += (char) MSG_ID;
+    body += (char) 0x01;
+    body += (char) msgData.id;
+    body += (char) msgData.responseProtocol;
+    body += (char) result.size ();
+    body += result;
 
-    // data length + message header
-    size = 7 + resSize;
-    printD ("ldapMessage size: Ox" << hex << size);
-
-    // initialize message header
-    data = new unsigned char[size];
-
-    data[0] = MSG_LDAP;
-    data[1] = size - 2; // except Ox3O LL FIXME handle long messages
-    data[2] = MSG_ID;
-    data[3] = MSG_ONE;
-    data[4] = msgData.id;
-    data[5] = msgData.responseProtocol;
-    data[6] = resSize;
-
-    // add rest of the message
-    memcpy (data + 7, resData, resSize);
+    // craft final response
+    data.clear ();
+    data += (char) MSG_LDAP;
+    data += (char) body.size ();
+    data += body;
 }
 
 /**
@@ -37,34 +29,14 @@ ldapMessage::ldapMessage (const ldapMessageData &msgData, const ldapResult &resu
  **/
 ldapMessage::ldapMessage (ldapErrorType type)
 {
-    data = NULL;
-    size = 0;
+    // TODO
 }
 
 /**
- * Message destructor
+ * dump ldapMessage
  **/
-ldapMessage::~ldapMessage ()
-{
-    if (data) {
-        delete[] data;
-    }
-}
-
-/**
- * Data property getter
- **/
-const unsigned char *
-ldapMessage::getData () const
+string
+ldapMessage::dump ()
 {
     return data;
-}
-
-/**
- * Size property getter
- **/
-const size_t
-ldapMessage::getSize () const
-{
-    return size;
 }

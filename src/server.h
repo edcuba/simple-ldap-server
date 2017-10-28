@@ -32,4 +32,7 @@ runServer (config &c);
 unsigned char
 receiveByte (int client);
 
+bool
+sendMessage (int client, ldapMessage &msg);
+
 #endif

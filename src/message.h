@@ -2,7 +2,7 @@
 #define MESSAGE_H
 
 #include "result.h"
-#include <cstring>
+#include <string>
 
 using namespace std;
 
@@ -51,15 +51,12 @@ class ldapMessageData
 class ldapMessage
 {
   public:
-    ldapMessage (const ldapMessageData &msgData, const ldapResult &result);
+    ldapMessage (const ldapMessageData &msgData, const string &result);
     ldapMessage (ldapErrorType type);
-    ~ldapMessage ();
-    const size_t getSize () const;
-    const unsigned char *getData () const;
+    string dump ();
 
   protected:
-    unsigned char *data;
-    size_t size;
+    string data;
 };
 
 #endif

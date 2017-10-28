@@ -64,7 +64,7 @@ ldapContext::processBindRequest ()
     EXPECT (data, MSG_ID, ERR_BIND_REQUEST);
 
     data = getByte ();
-    EXPECT (data, MSG_ONE, ERR_BIND_REQUEST);
+    EXPECT (data, 0x01, ERR_BIND_REQUEST);
 
     data = getByte ();
     EXPECT_RANGE (data, 1, 127, ERR_BIND_REQUEST);
@@ -115,7 +115,7 @@ ldapContext::processSearchRequest ()
     data = getByte ();
     EXPECT (data, MSG_ATTR, ERR_SEARCH_REQUEST);
     data = getByte ();
-    EXPECT (data, MSG_ONE, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x01, ERR_SEARCH_REQUEST);
     search->scope = getByte ();
 
     printD ("scope:");
@@ -125,7 +125,7 @@ ldapContext::processSearchRequest ()
     data = getByte ();
     EXPECT (data, MSG_ATTR, ERR_SEARCH_REQUEST);
     data = getByte ();
-    EXPECT (data, MSG_ONE, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x01, ERR_SEARCH_REQUEST);
     search->derefAliases = getByte ();
 
     printD ("derefAliases:");
@@ -149,9 +149,9 @@ ldapContext::processSearchRequest ()
 
     // parse typesonly
     data = getByte ();
-    EXPECT (data, MSG_ONE, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x01, ERR_SEARCH_REQUEST);
     data = getByte ();
-    EXPECT (data, MSG_ONE, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x01, ERR_SEARCH_REQUEST);
     printD ("typesonly:");
     search->typesonly = (getByte () == BOOL_TRUE) ? true : false;
 

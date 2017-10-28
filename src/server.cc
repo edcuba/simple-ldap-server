@@ -76,6 +76,28 @@ sclose (int client)
 }
 
 /**
+ * Send ldapMessage to client
+ **/
+bool
+sendMessage (int client, ldapMessage &msg)
+{
+    string data = msg.dump ();
+    if (!data.empty ()) {
+        if (DEBUG) {
+            printD ("[Client " << client << "] Response message:");
+            for (auto e : data) {
+                int d = e;
+                cerr << " 0x" << hex << d;
+            }
+            cerr << endl;
+        }
+        write (client, data.c_str (), data.size ());
+        return true;
+    }
+    return false;
+}
+
+/**
  * Handle client and exit
  * @param client socket descriptor
  **/
@@ -88,20 +110,7 @@ handleClient (clientData cd)
 
     while (true) {
         ldapMessage response = processMessage (cd);
-
-        const unsigned char *data = response.getData ();
-        const size_t size = response.getSize ();
-
-        if (data && size) {
-            if (DEBUG) {
-                printD ("[Client " << client << "] Response message:");
-                for (unsigned i = 0; i < size; ++i) {
-                    cerr << " 0x" << hex << (int) data[i];
-                }
-                cerr << endl;
-            }
-            write (client, data, size);
-        } else {
+        if (!sendMessage (client, response)) {
             break;
         }
     }

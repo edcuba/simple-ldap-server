@@ -19,7 +19,6 @@ class ldapContext;
 #define MSG_ID 0x02
 #define MSG_END 0xA0
 
-#define MSG_ONE 0x01
 #define MSG_PROP 0x04
 #define MSG_ATTR 0x0A
 #define MSG_BIND_REQUEST_AUTH 0x80

@@ -7,22 +7,27 @@
 
 using namespace std;
 
-class partialList
+class parAttrList
 {
   public:
-    partialList (const char *t) { type = t; }
-    const char *type = NULL;
-    vector<string> vals;
+    parAttrList (const char *t, string &v)
+    {
+        type = t;
+        val = v;
+    }
+    string type;
+    string val;
+    string dump ();
 };
 
 class ldapSearchEntry
 {
   public:
     ldapSearchEntry (string &uid);
-    ~ldapSearchEntry ();
-    unsigned char *objectName = NULL;
-    vector<partialList> attributes;
+    string objectName;
+    vector<parAttrList> attributes;
     void addAttribute (const char *type, string &val);
+    string dump ();
 };
 
 #endif
