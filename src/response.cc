@@ -21,16 +21,22 @@ parAttrList::dump ()
 
     // dump object value
     string objVal;
-    objVal += (char) 0x31;
+    objVal += (char) 0x04;
     objVal += (char) val.size ();
     objVal += val;
+
+    // craft attribute sequence of length 1
+    string objSeq;
+    objSeq += (char) 0x31;
+    objSeq += (char) objVal.size ();
+    objSeq += objVal;
 
     // craft final sequence
     string res;
     res += (char) 0x30;
-    res += (char) (objType.size () + objVal.size ());
+    res += (char) (objType.size () + objSeq.size ());
     res += objType;
-    res += objVal;
+    res += objSeq;
     return res;
 }
 
@@ -84,9 +90,11 @@ void
 ldapContext::sendSearchEntry (entry &e)
 {
     // initialize result structure with requred attributes
-    ldapSearchEntry res (e["login"]);
-    res.addAttribute ("email", e["email"]);
+    string login = e["login"];
+    ldapSearchEntry res (login);
     res.addAttribute ("cn", e["cn"]);
+    res.addAttribute ("login", login);
+    res.addAttribute ("email", e["email"]);
 
     // prepare response structure
     msgData.responseProtocol = PROT_SEARCH_RESULT_ENTRY;
