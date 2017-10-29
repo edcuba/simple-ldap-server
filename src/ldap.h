@@ -8,6 +8,7 @@
 class ldapContext;
 
 #include "csv.h"
+#include "dataset.h"
 #include "filter.h"
 #include "message.h"
 #include "response.h"
@@ -15,11 +16,8 @@ class ldapContext;
 
 #define BOOL_TRUE 0xFF
 
-#define MSG_LDAP 0x30
-#define MSG_ID 0x02
 #define MSG_END 0xA0
 
-#define MSG_PROP 0x04
 #define MSG_ATTR 0x0A
 #define MSG_BIND_REQUEST_AUTH 0x80
 
@@ -73,6 +71,8 @@ class ldapContext
 
   protected:
     void parseFilterEq (ldapFilter &filter);
+    void parseFilterOrAndNot (ldapFilter &filter);
+    void parseFilterSub (ldapFilter &filter);
     ldapFilter parseSubFilter ();
     vector<entry> *data;
     ldapMessage processSearchDescList ();
@@ -86,7 +86,7 @@ class ldapContext
     ldapMessage processLdapMessage ();
     ldapMessage generateSearchResponse ();
     void sendSearchEntry (entry &e);
-    vector<entry *> filterData ();
+    dataSet filterData ();
 };
 
 ldapMessage

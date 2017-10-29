@@ -10,7 +10,7 @@ ldapMessage::ldapMessage (const ldapMessageData &msgData, const string &result)
 {
     // craft message body
     string body;
-    body += (char) MSG_ID;
+    body += (char) 0x02;
     body += (char) 0x01;
     body += (char) msgData.id;
     body += (char) msgData.responseProtocol;
@@ -19,7 +19,7 @@ ldapMessage::ldapMessage (const ldapMessageData &msgData, const string &result)
 
     // craft final response
     data.clear ();
-    data += (char) MSG_LDAP;
+    data += (char) 0x30;
     data += (char) body.size ();
     data += body;
 }

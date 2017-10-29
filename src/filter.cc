@@ -1,6 +1,7 @@
 #include "filter.h"
 #include "cli.h"
 #include "csv.h"
+#include "dataset.h"
 #include "server.h"
 #include <vector>
 
@@ -11,46 +12,15 @@ using namespace std;
     throw runtime_error ("Failed to parse filter")
 
 /**
- * equalityMatch implementation
- **/
-static void
-filterEq (vector<entry *> &dataset, ldapFilter &filter)
-{
-    vector<entry *> result;
-    for (auto e : dataset) {
-        auto res = e->find (filter.attributeDesc);
-        if (res != e->end () && res->second == filter.assertionValue) {
-            result.push_back (e);
-        }
-    }
-    dataset.swap (result);
-}
-
-/**
- * Apply single filter on dataset
- **/
-static void
-filterDataSet (vector<entry *> &dataset, ldapFilter &filter)
-{
-    switch (filter.type) {
-        case FILTER_EQ:
-            filterEq (dataset, filter);
-            break;
-        default:
-            break;
-    }
-}
-
-/**
  * Apply filters on dataset
  **/
-vector<entry *>
+dataSet
 ldapContext::filterData ()
 {
-    vector<entry *> dataset;
+    dataSet dataset;
     if (search && data) {
         for (auto &e : *data) {
-            dataset.push_back (&e);
+            dataset.insert (&e);
         }
         filterDataSet (dataset, search->filter);
     }
@@ -65,13 +35,39 @@ ldapContext::parseFilterEq (ldapFilter &filter)
 {
     // parse attribute
     unsigned char data = getByte ();
-    CHECK (data, MSG_PROP);
+    CHECK (data, 0x04);
     filter.attributeDesc = readAttr ();
 
     // parse value
     data = getByte ();
-    CHECK (data, MSG_PROP);
+    CHECK (data, 0x04);
     filter.assertionValue = readAttr ();
+}
+
+/**
+ * Parse OR, AND or NOT filter
+ **/
+void
+ldapContext::parseFilterOrAndNot (ldapFilter &filter)
+{
+    // use recursion to parse subfilters
+    size_t remaining = filter.len;
+
+    printD ("[OR/AND/NOT] Parsing filter of length: " << remaining);
+
+    while (remaining > 0) {
+        ldapFilter sub = parseSubFilter ();
+        printD ("[OR/AND/NOT] Got filter of length: " << sub.len << " remaining: " << remaining);
+        remaining -= sub.len;
+        remaining -= 2; // structure data
+        filter.subs.push_back (sub);
+    }
+}
+
+void
+ldapContext::parseFilterSub (ldapFilter &filter)
+{
+    printE ("filterSub not supported");
 }
 
 /**
@@ -90,14 +86,19 @@ ldapContext::parseSubFilter ()
     switch (data) {
         case FILTER_OR:
             filter.type = FILTER_OR;
+            parseFilterOrAndNot (filter);
             break;
         case FILTER_AND:
             filter.type = FILTER_AND;
+            parseFilterOrAndNot (filter);
             break;
         case FILTER_NOT:
             filter.type = FILTER_NOT;
+            parseFilterOrAndNot (filter);
+            break;
         case FILTER_SUB:
             filter.type = FILTER_SUB;
+            parseFilterSub (filter);
             break;
         case FILTER_EQ:
             filter.type = FILTER_EQ;

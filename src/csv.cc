@@ -25,9 +25,16 @@ loadDB (const string &f)
         entry tmp;
         size_t semi1 = line.find (";");
         size_t semi2 = line.find (";", semi1 + 1);
+
+        // take care of trailing newline
+        size_t newline = 1;
+        if (line.find ('\n') != string::npos || line.find ('\r') != string::npos) {
+            newline = 2;
+        }
+
         tmp["cn"] = line.substr (0, semi1);
         tmp["login"] = line.substr (semi1 + 1, semi2 - semi1 - 1);
-        tmp["email"] = line.substr (semi2 + 1, line.size () - semi2 - 1);
+        tmp["email"] = line.substr (semi2 + 1, line.size () - semi2 - newline);
         dataset->push_back (tmp);
     }
 

@@ -1,5 +1,6 @@
 #include "response.h"
 #include "csv.h"
+#include "dataset.h"
 #include "ldap.h"
 #include <cstring>
 #include <string>
@@ -114,9 +115,9 @@ ldapContext::sendSearchEntry (entry &e)
 ldapMessage
 ldapContext::generateSearchResponse ()
 {
-    vector<entry *> dataset = filterData ();
+    dataSet data = filterData ();
     printD ("Results:");
-    for (auto e : dataset) {
+    for (auto e : data) {
         printD (e->operator[] ("login")
                 << " : " << e->operator[] ("cn") << " <" << e->operator[] ("email") << ">");
 

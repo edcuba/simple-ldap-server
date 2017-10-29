@@ -43,7 +43,7 @@ ldapMessage
 ldapContext::processBindRequestName ()
 {
     unsigned char data = getByte ();
-    EXPECT (data, MSG_PROP, ERR_BIND_REQUEST);
+    EXPECT (data, 0x04, ERR_BIND_REQUEST);
 
     string name = readAttr ();
 
@@ -61,7 +61,7 @@ ldapContext::processBindRequest ()
     printD ("Protocol: bindRequest");
 
     unsigned char data = getByte ();
-    EXPECT (data, MSG_ID, ERR_BIND_REQUEST);
+    EXPECT (data, 0x02, ERR_BIND_REQUEST);
 
     data = getByte ();
     EXPECT (data, 0x01, ERR_BIND_REQUEST);
@@ -80,14 +80,14 @@ ldapContext::processSearchDescList ()
 {
     printD ("Parsing description list");
     unsigned char data = getByte ();
-    EXPECT (data, MSG_LDAP, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x30, ERR_SEARCH_REQUEST);
 
     unsigned char len = getByte ();
     int limit = received1 + len;
 
     while (received1 < limit) {
         data = getByte ();
-        EXPECT (data, MSG_PROP, ERR_SEARCH_REQUEST);
+        EXPECT (data, 0x04, ERR_SEARCH_REQUEST);
         search->attrs.push_back (readAttr ());
     }
 
@@ -106,7 +106,7 @@ ldapContext::processSearchRequest ()
 
     // parse baseObject
     unsigned char data = getByte ();
-    EXPECT (data, MSG_PROP, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x04, ERR_SEARCH_REQUEST);
 
     printD ("baseObject:");
     search->baseObject = readAttr ();
@@ -133,7 +133,7 @@ ldapContext::processSearchRequest ()
 
     // parse sizeLimit
     data = getByte ();
-    EXPECT (data, MSG_ID, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x02, ERR_SEARCH_REQUEST);
     data = getByte ();
     EXPECT_RANGE (data, 1, 4, ERR_SEARCH_REQUEST);
     printD ("sizeLimit:");
@@ -141,7 +141,7 @@ ldapContext::processSearchRequest ()
 
     // parse timeLimit
     data = getByte ();
-    EXPECT (data, MSG_ID, ERR_SEARCH_REQUEST);
+    EXPECT (data, 0x02, ERR_SEARCH_REQUEST);
     data = getByte ();
     EXPECT_RANGE (data, 1, 4, ERR_SEARCH_REQUEST);
     printD ("timeLimit:");
@@ -190,7 +190,7 @@ ldapContext::processLdapMessage ()
 {
     // 0x02
     unsigned char data = getByte ();
-    EXPECT (data, MSG_ID, ERR_MSG);
+    EXPECT (data, 0x02, ERR_MSG);
 
     // FIXME not sure what this is <0x01, 0x04>
     data = getByte ();
@@ -251,7 +251,7 @@ processMessage (clientData &cd)
     // read first two bytes expect LdapMessage - 0x30 and length of L1 message
     int type = context.getByte ();
 
-    if (type != MSG_LDAP) {
+    if (type != 0x30) {
         printE ("Invalid LDAP header: Ox" << hex << type);
         return ldapMessage (ERR_MSG);
     }

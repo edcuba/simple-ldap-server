@@ -25,7 +25,7 @@ typedef enum {
 class ldapFilter
 {
   public:
-    unsigned char len = 0;
+    size_t len = 0;
     filterType type = FILTER_UNKNOWN;
     string attributeDesc;
     string assertionValue;

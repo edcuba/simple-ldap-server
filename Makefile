@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS ?= -O0 -g -Wall
+CXXFLAGS ?= -Wall -O3
 SRCS = src/*.cc
 HDRS = src/*.h
 TARGET = myldap
