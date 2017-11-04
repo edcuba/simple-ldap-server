@@ -44,13 +44,38 @@ ldapContext::getByte ()
 }
 
 /**
+ * Read property length
+ * length > 127 is specified on multiple bytes
+ **/
+size_t
+ldapContext::readLength ()
+{
+    // FIXME support length on multiple bytes
+    return getByte ();
+}
+
+/**
+ * Read INTEGER encoded according to BER
+ **/
+int
+ldapContext::readInt ()
+{
+    // FIXME properly read integer
+    unsigned char data = getByte (); // 0x02
+    (void) data;
+    data = getByte (); // number of octets
+    (void) data;
+    return getByte (); // value 0..127 FIXME support more octets
+}
+
+/**
  * Read length and attribute from stream
  * @return attribute or NULL of length is zero
  **/
 string
 ldapContext::readAttr ()
 {
-    unsigned char len = getByte ();
+    size_t len = readLength ();
     printD ("Attribute length: " << dec << (int) len);
 
     string data;

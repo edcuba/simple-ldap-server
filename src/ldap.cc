@@ -10,14 +10,8 @@ using namespace std;
 ldapMessage
 ldapContext::processMessageEnd ()
 {
-    unsigned char data = 0; // FIXME support 0xA0
-
-    if (data == 0 || data == MSG_END) {
-        printD ("Message correct");
-        return generateResponse ();
-    }
-    printE ("Message corrupt!");
-    return ldapMessage (ERR_MSG);
+    printD ("Message correct");
+    return generateResponse ();
 }
 
 /**
@@ -60,14 +54,13 @@ ldapContext::processBindRequest ()
 {
     printD ("Protocol: bindRequest");
 
-    unsigned char data = getByte ();
-    EXPECT (data, 0x02, ERR_BIND_REQUEST);
+    int version = readInt ();
 
-    data = getByte ();
-    EXPECT (data, 0x01, ERR_BIND_REQUEST);
+    printD ("Version: " << dec << version);
 
-    data = getByte ();
-    EXPECT_RANGE (data, 1, 127, ERR_BIND_REQUEST);
+    if (version > 127) {
+        return ldapMessage (ERR_BIND_REQUEST);
+    }
 
     return processBindRequestName ();
 }
@@ -82,7 +75,7 @@ ldapContext::processSearchDescList ()
     unsigned char data = getByte ();
     EXPECT (data, 0x30, ERR_SEARCH_REQUEST);
 
-    unsigned char len = getByte ();
+    size_t len = readLength ();
     int limit = received1 + len;
 
     while (received1 < limit) {
@@ -132,20 +125,12 @@ ldapContext::processSearchRequest ()
     EXPECT_RANGE (search->derefAliases, 0, 3, ERR_SEARCH_REQUEST);
 
     // parse sizeLimit
-    data = getByte ();
-    EXPECT (data, 0x02, ERR_SEARCH_REQUEST);
-    data = getByte ();
-    EXPECT_RANGE (data, 1, 4, ERR_SEARCH_REQUEST);
-    printD ("sizeLimit:");
-    search->sizeLimit = getByte ();
+    search->sizeLimit = readInt ();
+    printD ("sizeLimit:" << search->sizeLimit);
 
     // parse timeLimit
-    data = getByte ();
-    EXPECT (data, 0x02, ERR_SEARCH_REQUEST);
-    data = getByte ();
-    EXPECT_RANGE (data, 1, 4, ERR_SEARCH_REQUEST);
-    printD ("timeLimit:");
-    search->timeLimit = getByte ();
+    search->timeLimit = readInt ();
+    printD ("timeLimit:" << search->timeLimit);
 
     // parse typesonly
     data = getByte ();
@@ -188,17 +173,7 @@ ldapContext::processProtocolOp ()
 ldapMessage
 ldapContext::processLdapMessage ()
 {
-    // 0x02
-    unsigned char data = getByte ();
-    EXPECT (data, 0x02, ERR_MSG);
-
-    // FIXME not sure what this is <0x01, 0x04>
-    data = getByte ();
-    EXPECT_RANGE (data, 1, 4, ERR_MSG);
-
-    // message ID FIXME this should be in <0, 2^32-1>
-    msgData.id = getByte ();
-
+    msgData.id = readInt ();
     printD ("Message ID: " << msgData.id);
     return processProtocolOp ();
 }
@@ -210,7 +185,7 @@ ldapMessage
 ldapContext::processLength ()
 {
     level += 1;
-    unsigned char len = getByte ();
+    size_t len = readLength ();
 
     if (len == 0) {
         pErrHex ("Invalid message length", len);

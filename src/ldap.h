@@ -87,6 +87,9 @@ class ldapContext
     ldapMessage generateSearchResponse ();
     void sendSearchEntry (entry &e);
     dataSet filterData ();
+    size_t readLength ();
+    int readInt ();
+    string encodeInt (int i);
 };
 
 ldapMessage

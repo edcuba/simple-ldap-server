@@ -1,4 +1,5 @@
 #include "response.h"
+#include "ber.h"
 #include "csv.h"
 #include "dataset.h"
 #include "ldap.h"
@@ -15,29 +16,16 @@ string
 parAttrList::dump ()
 {
     // dump object type
-    string objType;
-    objType += (char) 0x04;
-    objType += (char) type.size ();
-    objType += type;
+    string objType = encodeStr (type);
 
     // dump object value
-    string objVal;
-    objVal += (char) 0x04;
-    objVal += (char) val.size ();
-    objVal += val;
+    string objVal = encodeStr (val);
 
     // craft attribute sequence of length 1
-    string objSeq;
-    objSeq += (char) 0x31;
-    objSeq += (char) objVal.size ();
-    objSeq += objVal;
+    string objSeq = encodeSet (objVal);
 
     // craft final sequence
-    string res;
-    res += (char) 0x30;
-    res += (char) (objType.size () + objSeq.size ());
-    res += objType;
-    res += objSeq;
+    string res = encodeSeq (objType + objSeq);
     return res;
 }
 
@@ -48,10 +36,7 @@ string
 ldapSearchEntry::dump ()
 {
     // dump objectName
-    string objName;
-    objName += (char) 0x04;
-    objName += (char) objectName.size ();
-    objName += objectName;
+    string objName = encodeStr (objectName);
 
     // dump partialAttributeList entries
     string attrDump;
@@ -60,10 +45,7 @@ ldapSearchEntry::dump ()
     }
 
     // dump attributes
-    string objAttrs;
-    objAttrs += (char) 0x30;
-    objAttrs += (char) attrDump.size ();
-    objAttrs += attrDump;
+    string objAttrs = encodeSeq (attrDump);
 
     // craft result
     return objName + objAttrs;

@@ -64,10 +64,30 @@ ldapContext::parseFilterOrAndNot (ldapFilter &filter)
     }
 }
 
+/**
+ * Parse substring filter
+ **/
 void
 ldapContext::parseFilterSub (ldapFilter &filter)
 {
-    printE ("filterSub not supported");
+    unsigned char data = getByte ();
+    CHECK (data, 0x30);
+    size_t len = readLength ();
+    (void) len;
+
+    // parse attribute
+    data = getByte ();
+    CHECK (data, 0x04);
+    filter.attributeDesc = readAttr ();
+
+    // substrings
+    data = getByte ();
+    CHECK (data, 0x30);
+    size_t subLen = readLength ();
+    (void) subLen;
+
+    // TODO substrings tree
+    printE ("Substring not supported yet");
 }
 
 /**
@@ -81,7 +101,7 @@ ldapContext::parseSubFilter ()
 
     // get filter length
     ldapFilter filter;
-    filter.len = getByte ();
+    filter.len = readLength ();
 
     switch (data) {
         case FILTER_OR:
