@@ -43,22 +43,41 @@ ldapContext::getByte ()
 size_t
 ldapContext::readLength ()
 {
-    // FIXME support length on multiple bytes
-    return getByte ();
+    unsigned char data = getByte ();
+    if (data < 0x80) {
+        // encoded on single octet
+        return data;
+    }
+    size_t res = 0;
+    unsigned char octets = data - 0x80;
+    for (int i = octets - 1; i >= 0; --i) {
+        size_t d = getByte ();
+        res |= d << (i * 8);
+    }
+    return res;
 }
 
 /**
  * Read INTEGER encoded according to BER
+ * Ox02 [n: number of octets] [octet 1] ... [octet n]
  **/
 int
 ldapContext::readInt ()
 {
-    // FIXME properly read integer
     unsigned char data = getByte (); // 0x02
     (void) data;
+
     data = getByte (); // number of octets
-    (void) data;
-    return getByte (); // value 0..127 FIXME support more octets
+
+    int res = 0;
+
+    // contruct result
+    for (int i = data - 1; i >= 0; --i) {
+        int d = getByte ();
+        res |= d << (8 * i);
+    }
+
+    return res;
 }
 
 /**

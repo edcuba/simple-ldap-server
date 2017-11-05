@@ -99,7 +99,12 @@ ldapContext::generateSearchResponse ()
 {
     dataSet data = filterData ();
     printD ("Results:");
+    int i = 0;
     for (auto e : data) {
+        i++;
+        if (search->sizeLimit > 0 && i > search->sizeLimit) {
+            break;
+        }
         printD (e->operator[] ("login")
                 << " : " << e->operator[] ("cn") << " <" << e->operator[] ("email") << ">");
 
