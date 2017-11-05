@@ -24,6 +24,9 @@ void
 filterNot (dataSet &data, ldapFilter &filter);
 
 void
+filterSub (dataSet &data, ldapFilter &filter);
+
+void
 filterDataSet (dataSet &data, ldapFilter &filter);
 
 #endif

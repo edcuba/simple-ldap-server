@@ -1,7 +1,7 @@
 #ifndef MYLDAP_H
 #define MYLDAP_H
 
-#define DEBUG false
+#define DEBUG true
 
 #define EXPECT(data, val, err)                                                               \
     if (data != val) {                                                                       \

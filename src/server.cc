@@ -32,14 +32,7 @@ receiveByte (int client)
 unsigned char
 ldapContext::getByte ()
 {
-    switch (level) {
-        case 2:
-            received2 += 1;
-        case 1:
-            received1 += 1;
-            break;
-    }
-
+    received++;
     return receiveByte (client);
 }
 

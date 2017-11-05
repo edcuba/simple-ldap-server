@@ -58,10 +58,7 @@ class ldapContext
     }
     int client = 0;
     int level = 0;
-    int length1 = 0;
-    int length2 = 0;
-    int received1 = 0;
-    int received2 = 0;
+    size_t received = 0;
     ldapSearch *search = NULL;
     ldapMessageData msgData;
     ldapMessage processLength ();
@@ -73,6 +70,9 @@ class ldapContext
     void parseFilterEq (ldapFilter &filter);
     void parseFilterOrAndNot (ldapFilter &filter);
     void parseFilterSub (ldapFilter &filter);
+    void parseFilterSubSub (ldapFilter &filter, size_t remaining, subStringType t);
+    void parseFilterSubFinal (ldapFilter &filter);
+
     ldapFilter parseSubFilter ();
     vector<entry> *data;
     ldapMessage processSearchDescList ();

@@ -7,9 +7,19 @@
 
 using namespace std;
 
-#define CHECK(data, val) \
-    if (data != val)     \
-    throw runtime_error ("Failed to parse filter")
+template <typename T1, typename T2>
+inline void
+CHECK (T1 data, T2 val)
+{
+    if (data != val)
+        throw runtime_error ("Failed to parse filter");
+}
+
+subString::subString (subStringType t, const string &s)
+{
+    type = t;
+    value = s;
+}
 
 /**
  * Apply filters on dataset
@@ -60,8 +70,54 @@ ldapContext::parseFilterOrAndNot (ldapFilter &filter)
         printD ("[OR/AND/NOT] Got filter of length: " << sub.len << " remaining: " << remaining);
         remaining -= sub.len;
         remaining -= 2; // structure data
-        filter.subs.push_back (sub);
+        filter.subFilters.push_back (sub);
     }
+}
+
+/**
+ * Parse initial or any substring and proceed
+ **/
+void
+ldapContext::parseFilterSubSub (ldapFilter &filter, size_t remaining, subStringType t)
+{
+    printD ("Parsing initial subFilter");
+
+    // store actual amount of received bytes
+    size_t diff = received;
+
+    filter.subStrings.push_back (subString (t, readAttr ()));
+
+    // find out remaining length
+    diff = received - diff;
+    remaining -= diff;
+
+    // no more substrings
+    if (remaining < 2) {
+        return;
+    }
+
+    // read next filter type
+    unsigned char data = getByte ();
+    remaining--;
+
+    switch (data) {
+        case SUB_ANY:
+            parseFilterSubSub (filter, remaining, SUB_ANY);
+            return;
+        case SUB_FINAL:
+            parseFilterSubFinal (filter);
+            return;
+    }
+}
+
+/**
+ * Parse final substring and proceed
+ **/
+void
+ldapContext::parseFilterSubFinal (ldapFilter &filter)
+{
+    printD ("Parsing final subFilter");
+    filter.subStrings.push_back (subString (SUB_FINAL, readAttr ()));
 }
 
 /**
@@ -70,24 +126,36 @@ ldapContext::parseFilterOrAndNot (ldapFilter &filter)
 void
 ldapContext::parseFilterSub (ldapFilter &filter)
 {
-    unsigned char data = getByte ();
-    CHECK (data, 0x30);
-    size_t len = readLength ();
-    (void) len;
+    printD ("Parsing subFilter");
 
     // parse attribute
-    data = getByte ();
+    unsigned char data = getByte ();
     CHECK (data, 0x04);
     filter.attributeDesc = readAttr ();
 
     // substrings
     data = getByte ();
     CHECK (data, 0x30);
-    size_t subLen = readLength ();
-    (void) subLen;
 
-    // TODO substrings tree
-    printE ("Substring not supported yet");
+    // length of substring structure
+    size_t remaining = readLength ();
+
+    data = getByte ();
+
+    remaining--;
+
+    switch (data) {
+        case SUB_INITIAL:
+            parseFilterSubSub (filter, remaining, SUB_INITIAL);
+            return;
+        case SUB_ANY:
+            parseFilterSubSub (filter, remaining, SUB_ANY);
+            return;
+        case SUB_FINAL:
+            parseFilterSubFinal (filter);
+            return;
+    }
+    throw runtime_error ("Invalid subFilter type");
 }
 
 /**

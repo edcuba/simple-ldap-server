@@ -76,9 +76,9 @@ ldapContext::processSearchDescList ()
     EXPECT (data, 0x30, ERR_SEARCH_REQUEST);
 
     size_t len = readLength ();
-    int limit = received1 + len;
+    size_t limit = received + len;
 
-    while (received1 < limit) {
+    while (received < limit) {
         data = getByte ();
         EXPECT (data, 0x04, ERR_SEARCH_REQUEST);
         search->attrs.push_back (readAttr ());
@@ -194,12 +194,10 @@ ldapContext::processLength ()
 
     switch (level) {
         case 1:
-            length1 = len;
-            printD ("Level 1 length: " << dec << length1);
+            printD ("Level 1 length: " << dec << len);
             return processLdapMessage ();
         case 2:
-            length2 = len;
-            printD ("Level 2 length: " << dec << length2);
+            printD ("Level 2 length: " << dec << len);
             switch (msgData.protocol) {
                 case PROT_BIND_REQUEST:
                     return processBindRequest ();

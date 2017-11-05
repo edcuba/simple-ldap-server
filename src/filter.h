@@ -20,6 +20,22 @@ typedef enum {
 } filterType;
 
 /**
+ * Substring types
+ **/
+typedef enum { SUB_INITIAL = 0x80, SUB_ANY = 0x81, SUB_FINAL = 0x82 } subStringType;
+
+/**
+ * Substring representation object
+ **/
+class subString
+{
+  public:
+    subString (subStringType t, const string &s);
+    subStringType type;
+    string value;
+};
+
+/**
  * Object representation of filter
  **/
 class ldapFilter
@@ -29,7 +45,8 @@ class ldapFilter
     filterType type = FILTER_UNKNOWN;
     string attributeDesc;
     string assertionValue;
-    vector<ldapFilter> subs;
+    vector<ldapFilter> subFilters;
+    vector<subString> subStrings;
 };
 
 #endif
