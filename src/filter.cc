@@ -7,6 +7,7 @@
 
 using namespace std;
 
+// helper function for value comparison
 template <typename T1, typename T2>
 inline void
 CHECK (T1 data, T2 val)
@@ -15,6 +16,7 @@ CHECK (T1 data, T2 val)
         throw runtime_error ("Failed to parse filter");
 }
 
+// subString constructor
 subString::subString (subStringType t, const string &s)
 {
     type = t;
@@ -63,11 +65,11 @@ ldapContext::parseFilterOrAndNot (ldapFilter &filter)
     // use recursion to parse subfilters
     size_t remaining = filter.len;
 
-    printD ("[OR/AND/NOT] Parsing filter of length: " << remaining);
+    printD ("Parsing a filter of length: " << remaining);
 
     while (remaining > 0) {
         ldapFilter sub = parseSubFilter ();
-        printD ("[OR/AND/NOT] Got filter of length: " << sub.len << " remaining: " << remaining);
+        printD ("Got a filter of length: " << sub.len << " remaining: " << remaining);
         remaining -= sub.len;
         remaining -= 2; // structure data
         filter.subFilters.push_back (sub);

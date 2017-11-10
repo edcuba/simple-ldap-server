@@ -10,8 +10,8 @@ using namespace std;
 vector<entry> *
 loadDB (const string &f)
 {
+    // open the DB file
     ifstream data (f);
-
     if (!data.is_open ()) {
         printE ("Failed to open database: '" << f << "'");
         return NULL;
@@ -21,6 +21,7 @@ loadDB (const string &f)
 
     vector<entry> *dataset = new vector<entry>;
 
+    // parse lines
     while (getline (data, line)) {
         entry tmp;
         size_t semi1 = line.find (";");
@@ -32,9 +33,10 @@ loadDB (const string &f)
             newline = 2;
         }
 
+        // initialize object
         tmp["cn"] = line.substr (0, semi1);
-        tmp["login"] = line.substr (semi1 + 1, semi2 - semi1 - 1);
-        tmp["email"] = line.substr (semi2 + 1, line.size () - semi2 - newline);
+        tmp["uid"] = line.substr (semi1 + 1, semi2 - semi1 - 1);
+        tmp["mail"] = line.substr (semi2 + 1, line.size () - semi2 - newline);
         dataset->push_back (tmp);
     }
 

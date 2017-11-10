@@ -21,11 +21,9 @@ ldapMessage::ldapMessage (const ldapMessageData &msgData, const string &result)
 
 /**
  * ldap error message constructor
+ *  this is just empty message as we are not sending error reports
  **/
-ldapMessage::ldapMessage (ldapErrorType type)
-{
-    // TODO
-}
+ldapMessage::ldapMessage (ldapErrorType type) {}
 
 /**
  * dump ldapMessage

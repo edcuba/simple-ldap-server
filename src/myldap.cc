@@ -11,6 +11,7 @@ using namespace std;
 int
 main (int argc, char const *argv[])
 {
+    // load configuration
     config c;
 
     if (isHelp (argc, argv)) {
@@ -31,5 +32,6 @@ main (int argc, char const *argv[])
 
     printD ("Starting on port: " << c.port);
 
+    // start server loop
     return runServer (c);
 }

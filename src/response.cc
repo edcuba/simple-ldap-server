@@ -73,11 +73,11 @@ void
 ldapContext::sendSearchEntry (entry &e)
 {
     // initialize result structure with requred attributes
-    string login = e["login"];
+    string login = e["uid"];
     ldapSearchEntry res (login);
     res.addAttribute ("cn", e["cn"]);
-    res.addAttribute ("login", login);
-    res.addAttribute ("email", e["email"]);
+    res.addAttribute ("uid", login);
+    res.addAttribute ("mail", e["mail"]);
 
     // prepare response structure
     msgData.responseProtocol = PROT_SEARCH_RESULT_ENTRY;
@@ -102,12 +102,15 @@ ldapContext::generateSearchResponse ()
     int i = 0;
     for (auto e : data) {
         i++;
+        // respect the sizeLimit
         if (search->sizeLimit > 0 && i > search->sizeLimit) {
             break;
         }
-        printD (e->operator[] ("login")
-                << " : " << e->operator[] ("cn") << " <" << e->operator[] ("email") << ">");
 
+        printD (e->operator[] ("uid")
+                << " : " << e->operator[] ("cn") << " <" << e->operator[] ("mail") << ">");
+
+        // send the particular entry
         sendSearchEntry (*e);
     }
 

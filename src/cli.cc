@@ -14,8 +14,18 @@ pErrHex (const char *msg, unsigned char val)
     printE (msg << " : 0x" << hex << (int) val);
 }
 
+/**
+ * Parse arguments from command line
+ * Supported arguments are:
+ *  -p PORT
+ *      server port to use
+ *  -f FILE
+ *      path to CSV database
+ *  -h
+ *      print help and exit
+ **/
 bool
-parseCli (int argc, char const* argv[], config& c)
+parseCli (int argc, char const *argv[], config &c)
 {
     // get port
     for (int i = 1; i < argc; ++i) {
@@ -48,8 +58,11 @@ parseCli (int argc, char const* argv[], config& c)
     return true;
 }
 
+/**
+ * Print help
+ **/
 bool
-isHelp (int argc, char const* argv[])
+isHelp (int argc, char const *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (strcmp ("-h", argv[i]) == 0) {
