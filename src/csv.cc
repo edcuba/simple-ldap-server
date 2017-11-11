@@ -36,6 +36,7 @@ loadDB (const string &f)
         // initialize object
         tmp["cn"] = line.substr (0, semi1);
         tmp["uid"] = line.substr (semi1 + 1, semi2 - semi1 - 1);
+        tmp["userid"] = tmp["uid"];
         tmp["mail"] = line.substr (semi2 + 1, line.size () - semi2 - newline);
         dataset->push_back (tmp);
     }

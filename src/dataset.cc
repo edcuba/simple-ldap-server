@@ -3,6 +3,19 @@ using namespace std;
 #include "dataset.h"
 
 /**
+ * Convert string to lowercase
+ **/
+static string
+toLC (const string &s)
+{
+    string res;
+    for (auto c : s) {
+        res += tolower (c);
+    }
+    return res;
+}
+
+/**
  * equalityMatch implementation
  **/
 void
@@ -14,8 +27,9 @@ filterEq (dataSet &data, ldapFilter &filter)
     for (entry *e : data) {
 
         // find required attribute and compare it with desired value
-        auto res = e->find (filter.attributeDesc);
-        if (res != e->end () && res->second == filter.assertionValue) {
+        string desc = toLC (filter.attributeDesc);
+        auto res = e->find (desc);
+        if (res != e->end () && toLC (res->second) == toLC (filter.assertionValue)) {
             // if positive, than save the entry
             result.insert (e);
         }
@@ -35,13 +49,14 @@ filterSub (dataSet &data, ldapFilter &filter)
     for (entry *e : data) {
 
         // get requested attribute
-        auto res = e->find (filter.attributeDesc);
+        string desc = toLC (filter.attributeDesc);
+        auto res = e->find (desc);
 
         if (res != e->end ()) {
             // object contains requested attribute
 
             bool match = true;
-            const string &v = res->second;
+            const string &v = toLC (res->second);
 
             // position in string - for proper any filter functionality
             size_t pos = 0;
@@ -49,25 +64,27 @@ filterSub (dataSet &data, ldapFilter &filter)
             // check substrings
             for (subString &s : filter.subStrings) {
 
+                string k = toLC (s.value);
+
                 if (s.type == SUB_INITIAL) {
                     // substring on the beggining
-                    pos = v.find (s.value);
+                    pos = v.find (k);
                     if (pos != 0) {
                         match = false;
                         break;
                     }
-                    pos += s.value.size ();
+                    pos += k.size ();
                 } else if (s.type == SUB_ANY) {
                     // substring anywhere
-                    pos = v.find (s.value, pos);
+                    pos = v.find (k, pos);
                     if (pos == string::npos) {
                         match = false;
                         break;
                     }
-                    pos += s.value.size ();
+                    pos += k.size ();
                 } else { // SUB_FINAL
                     // substring on the end
-                    if (v.find (s.value, v.size () - s.value.size ()) == string::npos) {
+                    if (v.find (k, v.size () - k.size ()) == string::npos) {
                         match = false;
                         break;
                     }
