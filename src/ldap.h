@@ -72,6 +72,7 @@ class ldapContext
     void parseFilterSub (ldapFilter &filter);
     void parseFilterSubSub (ldapFilter &filter, size_t remaining, subStringType t);
     void parseFilterSubFinal (ldapFilter &filter);
+    void parseFilterPresent (ldapFilter &filter);
 
     ldapFilter parseSubFilter ();
     vector<entry> *data;

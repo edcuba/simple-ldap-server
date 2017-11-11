@@ -94,7 +94,7 @@ ldapContext::readAttr ()
     if (len == 0) {
         return data;
     }
-    for (unsigned i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
         data += getByte ();
     }
     printD ("Received attribute: " << data);

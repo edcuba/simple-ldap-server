@@ -43,21 +43,28 @@ filterSub (dataSet &data, ldapFilter &filter)
             bool match = true;
             const string &v = res->second;
 
+            // position in string - for proper any filter functionality
+            size_t pos = 0;
+
             // check substrings
             for (subString &s : filter.subStrings) {
 
                 if (s.type == SUB_INITIAL) {
                     // substring on the beggining
-                    if (v.find (s.value) != 0) {
+                    pos = v.find (s.value);
+                    if (pos != 0) {
                         match = false;
                         break;
                     }
+                    pos += s.value.size ();
                 } else if (s.type == SUB_ANY) {
                     // substring anywhere
-                    if (v.find (s.value) == string::npos) {
+                    pos = v.find (s.value, pos);
+                    if (pos == string::npos) {
                         match = false;
                         break;
                     }
+                    pos += s.value.size ();
                 } else { // SUB_FINAL
                     // substring on the end
                     if (v.find (s.value, v.size () - s.value.size ()) == string::npos) {

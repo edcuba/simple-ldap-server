@@ -161,6 +161,17 @@ ldapContext::parseFilterSub (ldapFilter &filter)
 }
 
 /**
+ * Parse PRESENT filter
+ **/
+void
+ldapContext::parseFilterPresent (ldapFilter &filter)
+{
+    for (size_t i = 0; i < filter.len; ++i) {
+        filter.attributeDesc += getByte ();
+    }
+}
+
+/**
  * Process single filter
  **/
 ldapFilter
@@ -193,6 +204,10 @@ ldapContext::parseSubFilter ()
         case FILTER_EQ:
             filter.type = FILTER_EQ;
             parseFilterEq (filter);
+            break;
+        case FILTER_PRESENT:
+            filter.type = FILTER_PRESENT;
+            parseFilterPresent (filter);
             break;
     }
 

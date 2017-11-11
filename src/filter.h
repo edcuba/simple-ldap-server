@@ -16,7 +16,8 @@ typedef enum {
     FILTER_OR = 0xA1,
     FILTER_NOT = 0xA2,
     FILTER_SUB = 0xA4,
-    FILTER_EQ = 0xA3
+    FILTER_EQ = 0xA3,
+    FILTER_PRESENT = 0x87
 } filterType;
 
 /**
