@@ -1,0 +1,352 @@
+\documentclass[12pt]{report}
+\usepackage[a4paper]{geometry}
+\usepackage[myheadings]{fullpage}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{wrapfig, setspace}
+\usepackage[slovak]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{url}
+
+\newcommand{\HRule}[1]{\rule{\linewidth}{#1}}
+\onehalfspacing
+\setcounter{tocdepth}{5}
+\setcounter{secnumdepth}{5}
+
+%-------------------------------------------------------------------------------
+% HEADER & FOOTER
+%-------------------------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\setlength\headheight{15pt}
+\fancyhead[L]{login: xcubae00}
+\fancyhead[R]{Vysoké učení technické v Brně}
+\fancyfoot[R]{Strana \thepage\ z \pageref{LastPage}}
+%-------------------------------------------------------------------------------
+% TITLE PAGE
+%-------------------------------------------------------------------------------
+
+\begin{document}
+
+\title{ \normalsize \large \textsc{Dokumentácia}
+        \\ [1.0cm]
+        \LARGE \textbf{\uppercase{LDAP server}} \\
+        [0.5cm]
+        \normalsize \today \vspace*{5\baselineskip}}
+
+\date{}
+
+\author{
+        Eduard Čuba \\
+        login: xcubae00 \\
+        Vysoké učení technické v Brně}
+
+\maketitle
+\tableofcontents
+
+\chapter{Úvod}
+
+Lightweight Directory Access Protocol (LDAP) je protokol pre ukladanie a
+prístup k dátam na adresárovom serveri.
+V rámci projektu z predmetu \emph{Sieťové aplikácie a správa sietí} som sa
+venoval štúdiu tohoto protokolu a implementácii jednoduchého konkurentného
+servera s podporou tohoto protokolu pre prístup k dátam.
+
+Server poskytne prístup k dátam, ktoré sú pre zjednodušenie uložené v \texttt{CSV} súbore a
+pre každý dátový objekt definujú atribúty:
+\begin{itemize}
+    \item \textbf{cn} - meno a priezvisko (\textbf{c}ommon \textbf{n}ame)
+    \item \textbf{uid} - univerzitný login (\textbf{u}ser \textbf{id}) v tvare \texttt{xlogin00}
+    \item \textbf{mail} - univerzitný email v tvare \texttt{xlogin00@stud.fit.vutbr.cz}
+\end{itemize}
+
+Server poskytuje podporu pre operáciu vyhľadania záznamov (\texttt{SearchRequest}) s využitím operácii
+\texttt{and}, \texttt{or}, \texttt{not}, \texttt{equalityMatch} a \texttt{subString}.
+Zvolený implementačný jazyk je \texttt{C++} s ohľadom na princípy objektového návrhu.
+
+\section{Reprezentácia dát a kódovanie}
+
+Pred samotným popisom protokolu je vhodné popísať formát, v akom sú správy zasielané.
+Základom správ sú dátové objekty zodpovedajúce štandardu \texttt{ASN.1}\cite{ASN} (\textbf{A}bstract
+\textbf{S}yntax \textbf{N}otation One), kódované podľa \texttt{BER}\cite{BER} (\textbf{B}asic
+\textbf{E}ncoding \textbf{R}ules).
+
+Pre potreby implementácie projektu budeme potrebovať následujúce dátové objekty.
+
+\subsection{INTEGER}
+
+Reprezentuje celé číslo v rozsahu $-32768$ až $32767$.
+
+Typ je reprezentovaný hodnotou \texttt{Ox2}, následuje (minimálny) počet oktetov potrebných na
+reprezentáciu čísla (1 až 4) a samotné dátové oktety.
+
+\subsubsection*{Príklad}
+
+\begin{itemize}
+    \item Hodnota $42$ sa zakóduje ako \texttt{0x2 Ox1 Ox2a}
+    \item Hodnota $420$ sa zakóduje ako \texttt{0x2 Ox2 Ox1 0xa4}
+\end{itemize}
+
+
+\subsection{Dĺžka}
+
+Typ dĺžky je používaný ako súčasť viacerých dátových objektov.
+Hodnote nepredchádza špecifikácia typu. Samotná dĺžka $L$ sa kóduje následujúcim spôsobom.
+
+\begin{itemize}
+    \item Ak $L < 128$, tak sa dĺžka zapíše na jediný oktet
+    \item Ak $L >= 128$, tak hodnota prvého oktetu $H - 128$ reprezentuje počet nasledujúcich dátových oktetov
+\end{itemize}
+
+\subsubsection*{Príklad}
+
+\begin{itemize}
+    \item Dĺžka $100$ sa zakóduje ako \texttt{0x64}
+    \item Dĺžka $159$ sa zakóduje ako \texttt{0x81 Ox9f}
+\end{itemize}
+
+\subsection{STRING}
+
+Predstavuje reťazec oktetov. Reprezentuje ho hodnota \texttt{0x4}. Za hodnotou typu následuje počet
+dátových oktetov vo formáte dĺžky a samotné dátové oktety.
+
+\subsubsection*{Príklad}
+
+\begin{itemize}
+    \item \texttt{"xcubae00"} sa kóduje ako \texttt{0x4 0x8 0x78 0x63 0x75 0x62 0x61 0x65 0x30 0x30}
+    \item \texttt{0x4} je dátový typ
+    \item \texttt{0x8} je počet oktetov
+    \item \texttt{0x78 0x63 0x75 0x62 0x61 0x65 0x30 0x30} sú ASCII hodnoty znakov
+\end{itemize}
+
+\subsection{SEQUENCE}
+
+Sekvencia dátových objektov reprezentovaná hodnotou \texttt{0x30}, za ktorou následuje
+dĺžka sekvencie a samotné dátové objekty.
+
+\subsection{SET}
+
+Skupina dátových objektov reprezentovaná hodnotou \texttt{0x31}, za ktorou následuje
+dĺžka skupiny a samotné dátové objekty.
+
+\chapter{Protokol LDAP}
+
+Komunikáciu inicializuje klient zaslaním správy \texttt{bindRequest}, ktorá indikuje serveru,
+že s ním klient chce naviazať spojenie.
+V tejto časti je možné riešiť autentifikáciu užívateľa, čo však nie je predmetom projektu.
+
+Server na požiadavku reaguje zaslaním správy \texttt{bindResponse}, v ktorej uvádza, či bolo
+požiadavke na nadviazanie spojenia vyhovené.
+V našom prípade odpovedáme na všetky požiadavky, ktorým server rozumie kladne.
+
+Po úspešnom nadviazaní spojenia môže klient zasielať požiadavky na dátové objekty.
+Požiadavku zašle v správe \texttt{searchRequest},
+kde špecifikuje aké kritéria musia dátové objekty spĺňať.
+
+Server požiadavku spracuje a ak sa v jeho databáze vyskytujú objekty,
+ktoré vyhovujú zadaným kritériám, tak pre každý dátový objekt generuje
+správu \texttt{searchResEntry}, ktorá obsahuje informácie o konkrétnom objekte.
+
+Táto kapitola sa venuje popisu jednotlivých správ protokolu podporovaných serverom. Správy sú
+bližšie popísané v dokumente \texttt{RFC 2251}\cite{RFC2251}.
+
+\section{LDAP message}
+
+Pre účely komunikácie sú objekty správy zaobalené v sekvencii \texttt{LDAPMessage}. Jej štruktúra
+vyzerá v prípade nášho serveru následovne.
+
+\begin{verbatim}
+LDAPMessage ::= SEQUENCE {
+    messageID       MessageID,
+    protocolOp      CHOICE {
+            bindRequest     BindRequest,
+            bindResponse    BindResponse,
+            searchRequest   SearchRequest,
+            searchResEntry  SearchResultEntry,
+            searchResDone   SearchResultDone,
+            unbindRequest   UnbindRequest
+    }
+}
+\end{verbatim}
+
+\begin{itemize}
+    \item messageID je identifikátor správy v rozsahu $0$ až $2^{31} -1$
+    \item protocolOp je jedným z podporovaných typov správ.
+\end{itemize}
+
+\subsection{bindRequest}
+
+Správa zaslaná klientom na zahájenie komunikácie.
+Server nepodporuje autentifikáciu užívateľa pomocou \texttt{sasl},
+podporovaná je výhradne metóda \texttt{simple}.
+
+\subsection{bindResponse}
+
+Správa odoslaná serverom na potvrdenie zahájenia spojenia vo formáte. Vzhľdom na to, že server
+nepodporuje autentifikáciu by mal byť výsledok vždy \texttt{success (0)}.
+
+\subsection{searchRequest}
+
+Žiadosť klienta o informácie o dátových objektoch, ktoré spĺňaju kritéria špecifikované filtrami.
+
+Medzi filtre podporované serverom patrí:
+\begin{itemize}
+    \item \texttt{and} - konjunkcia medzi viacerými filtrami
+    \item \texttt{or} - disjunkcia medzi viacerými filtrami
+    \item \texttt{not} - negácia jedného filtra
+    \item \texttt{equalityMatch} - porovnanie reťazcov (bez ohľadu na veľké a malé písmená)
+    \item \texttt{substrings} - zoznam podreťazcov
+    \item \texttt{present} - všetky dostupné záznamy
+\end{itemize}
+
+\subsection{searchResEntry}
+
+Správa obsahujúca jeden dátový objekt, ktorý vyhovuje špecifikovaným kritériám.
+V prípade viacerých výsledkov sa pre každý dátový objekt generuje samostatná správa.
+
+\subsection{searchResDone}
+
+Správa oznamujúca, že boli zaslané všetky dátové objekty.
+
+\subsection{unBind}
+
+Žiadosť o ukončenie spojenia zasielaná klientom.
+
+\chapter{Implementácia}
+
+Server je implementovaný v jazyku \texttt{C++} s vo verzii \texttt{C++14}. Kód je formátovaný pomocou
+utility \texttt{clang-format} a budovaný pomocou systému \texttt{make}.
+
+\section{Štruktúra projektu}
+
+Kód je rozdelený do 11 zdrojových a 11 hlavičkových súborov.
+Rozdelenie funkcie zdrojových súborov je následovné:
+
+\begin{itemize}
+    \item \texttt{ber.cc} - kódovanie a dekódovanie dátových objektov podľa \texttt{BER}
+    \item \texttt{cli.cc} - načítanie konfigurácie z príkazového riadku
+    \item \texttt{csv.cc} - načítanie údajov z \texttt{CSV} súboru
+    \item \texttt{dataset.cc} - operácie nad dátami v databáze (aplikácia filtrov)
+    \item \texttt{ldap.cc} - stavový automat na príjem správy
+    \item \texttt{filter.cc} - stavový automat na príjem filtrov, inicializácia objektu \texttt{ldapFilter}
+    \item \texttt{message.cc} - objekt zapúzdrujúci LDAP správu
+    \item \texttt{myldap.cc} - vstupný bod programu
+    \item \texttt{response.cc} - objekt zapúzdrujúci odpoveď na dotaz (\texttt{ldapSearchResEntry})
+    \item \texttt{result.cc} - objekt zapúzdrujúci výsledok (\texttt{ldapResult})
+    \item \texttt{server.cc} - implementácia konkurentného servera a čítanie zo socketu
+\end{itemize}
+
+\section{Načítanie vstupných argumentov}
+
+Načítanie argumentov z príkazového riadku je riešené manuálne jednoduchou smyčkou.
+
+\section{Načítanie databázy}
+
+Načítanie databázového súboru je riešené manuálne.
+Vstupný súbor sa prechádza riadok po riadku s využitím \texttt{C++} triedy \texttt{std::ifstream}
+a metódy \texttt{getline}. Riadok je rozdelený podľa znaku '\texttt{;}' na tri časti, ktoré sú
+reprezentované ako meno, login a email.
+
+Každý záznam je uložený v neusporiadanej mape (\texttt{std::unordered\_map}),
+podľa kľúčov \texttt{cn}, \texttt{uid/userid} (podporované sú oba tvary) a \texttt{mail}.
+Jednotlivé záznamy (neusporiadené mapy) sú uložené do poľa (\texttt{std::vector}).
+
+\section{Konkurentný server}
+
+Server vytvorí TCP socket na požadovanom porte (predvolený je 389) pomocou systémových volaní
+\texttt{socket}, \texttt{bind} a \texttt{listen}.
+Následne čaká na prichádzajúce spojenie volaním \texttt{accept}.
+Po prijatí požiadavku vytvorí nové obslužné vlákno (s využitím \texttt{std::thread}) a znova sa
+vracia do stavu čakania na prichádzajúce spojenie.
+
+\section{Spracovanie správy}
+
+Obslužné vlákno spustí spracovanie správy pomocou stavového automatu.
+Správa sa číta postupne po jednom bajte.
+Najprv sa vytvorí objekt \texttt{ldapContext}, ktorý drží informácie o správe.
+Automat začína spracovaním dĺžky a identifikátora správy.
+
+Následuje voľba protokolu, kde sa stavy vetvia podľa druhu požiadavku.
+\begin{itemize}
+    \item \texttt{bindRequest/searchRequest} presunie automat do stavu príjmu správy
+    \item \texttt{unBind} ukončí spracovanie, uzavrie socket a ukončí činnosť vlákna
+\end{itemize}
+
+\section{Generovanie odpovede}
+
+Po prijatí celej správy sa spustí proces generovanie odpovede.
+\begin{itemize}
+    \item \texttt{bindRequest} - generuje správu \texttt{bindResponse}
+    \item \texttt{searchRequest} - aplikuje filtre na databázu, pre každý výsledok
+        generuje správu typu \texttt{searchResEntry} a následne odošle správu \texttt{searchResDone}.
+\end{itemize}
+
+\section{Filtre}
+
+Filtre sú reprezentované ako rekurzívna dátová štruktúra.
+\begin{verbatim}
+ldapFilter {
+    filterType          type
+    string              attributeDesc
+    string              assertionValue
+    vector<ldapFilter>  subFilters
+    vector<subString>   subStrings
+}
+\end{verbatim}
+Vyhodnotenie začína aplikáciou koreňového filtra na mäkkú kópiu databázy (ďalej len \texttt{dataset}).
+Spôsob vyhodnotenia filtra závisí od jeho typu.
+\begin{itemize}
+    \item \texttt{equalityMatch/substrings} - v datasete ponechá len záznamy ktoré vyhovujú podmienke filtra
+    \item \texttt{not} - zavolá negovaný filter s kópiou vstupného datasetu a vráti doplnok výsledku vzhľadom k vstupnému datasetu
+    \item \texttt{and} - aplikuje na vstupný dataset všetky podfiltre
+    \item \texttt{or} - aplikuje podfiltre na kópie vstupného datasetu a vráti ich zjednotenie
+\end{itemize}
+
+\section{Chybové stavy}
+
+V prípade chybového stavu pri spracovaní správy sa spracovanie preruší, vypíše sa chyba na
+\texttt{stderr}, socket sa uzavrie a vlákno sa ukončí.
+
+\section{Rozšírenia}
+
+\begin{itemize}
+    \item Podpora filtra \texttt{present} - pre jednoduchšie testovanie a vypísanie všetkých záznamov
+    \item Podpora národných znakov v kódovaní \texttt{UTF-8}
+\end{itemize}
+
+\chapter{Testovanie}
+
+Server bol testovaný manuálne pomocou utility \texttt{ldapsearch} z balíku \texttt{OpenLDAP}
+s dátovým súborom v kódovaní \texttt{UTF-8} so SR/ČR národnými znakmi.
+
+Ako testovacie prostredie bol použitý operačný systém \texttt{Fedora 26, Fedora 27} a
+\texttt{CentOS 7.4.1708 (merlin)} s kompilátorom \texttt{GCC 7.2.1} a \texttt{GCC 6.4 (merlin)}.
+
+\begin{thebibliography}{9}
+    \addcontentsline{toc}{chapter}{Literatúra}
+
+    \bibitem{RFC2251}
+        Wahl, M., Howes, T., and S. Kille,
+        \textit{Lightweight Directory Access Protocol (v3)},
+        RFC 2251,
+        December 1997.
+
+    \bibitem{ASN}
+        Emmanuel Lécharny,
+        \textit{Ldap ASN.1 Codec},
+        Október 2006,
+        \\\url{https://cwiki.apache.org/confluence/display/DIRxSRVx10/Ldap+ASN.1+Codec}
+        \\Navštívené 12. Novembra 2017.
+
+    \bibitem{BER}
+        Burton S. Kaliski Jr., Ph.D.,
+        RSA Data Security, Inc. Public-Key Cryptography Standards (PKCS),
+        An RSA Laboratories Technical Note,
+        \textit{A Layman's Guide to a Subset of ASN.1, BER, and DER},
+        November 1, 1993,
+        \\\url{http://luca.ntop.org/Teaching/Appunti/asn1.html}
+        \\Navštívené 12. Novembra 2017.
+
+\end{thebibliography}
+
+\end{document}
